@@ -1,0 +1,6 @@
+make.exe --dry-run --keep-going --print-directory
+make.exe: Entering directory `e:/dev/the-br-in-c'
+rm ./dist/game.exe
+ 
+make.exe: Leaving directory `e:/dev/the-br-in-c'
+ 

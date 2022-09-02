@@ -1,0 +1,348 @@
+make.exe all --print-data-base --no-builtin-variables --no-builtin-rules --question
+# GNU Make 3.81
+# Copyright (C) 2006  Free Software Foundation, Inc.
+# This is free software; see the source for copying conditions.
+# There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+# This program built for i386-pc-mingw32
+ 
+
+# Make data base, printed on Sun Aug 28 17:52:19 2022
+
+# Variables
+
+# automatic
+<D = $(patsubst %/,%,$(dir $<))
+# automatic
+?F = $(notdir $?)
+# makefile (from `makefile', line 3)
+SRC = $(wildcard ./src/*.c ./src/**/*.c)
+# makefile
+MAKEFLAGS = Rrqp
+# environment
+LIBCLANG_PATH = C:\Program Files\LLVM\bin
+# automatic
+?D = $(patsubst %/,%,$(dir $?))
+# automatic
+@D = $(patsubst %/,%,$(dir $@))
+# environment
+HOMEDRIVE = C:
+# automatic
+@F = $(notdir $@)
+# automatic
+^D = $(patsubst %/,%,$(dir $^))
+# makefile
+CURDI 
+R := e:/dev/the-br-in-c
+# makefile (from `makefile', line 1)
+SHELL = cmd
+# environment
+WINDIR = C:\Windows
+# environment
+VSCODE_NLS_CONFIG = {"locale":"en-gb","availableLanguages":{},"_languagePackSupport":true}
+# environment
+VBOX_MSI_INSTALL_PATH = C:\Program Files\Oracle\VirtualBox\
+# environment
+ONEDRIVE = E:\tezza\OneDrive
+# environment
+PATHEXT = .COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC;.PY;.PYW
+# makefile (from `makefile', line 1)
+MAKEFILE_LIST :=  makefile
+# environment
+TMP = C:\Users\tez 
+za\AppData\Local\Temp
+# environment
+PROGRAMW6432 = C:\Program Files
+# environment
+PROGRAMDATA = C:\ProgramData
+# environment
+VSCODE_CWD = C:\Windows\System32
+# environment
+PATH = C:\Program Files\Volta\;C:\Program Files (x86)\Intel\Intel(R) Management Engine Components\iCLS\;C:\Program Files\Intel\Intel(R) Management Engine Components\iCLS\;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\VulkanSDK\1.2.162.1\Bin;C:\Program Files\Oculus\Support\oculus-runtime;C:\Program Files (x86)\Python38-32\Scripts\;C:\Program Files (x86)\Python38-32\;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files\Git\cmd;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\Program Files\NVIDIA Corporation\NVIDIA NvDLISR;C:\Program Files\nodejs\;C:\Program Files (x86)\Intel\Intel(R) Management Engine Components\DAL;C:\Program Files\Intel\Intel(R) Management Engine Components\DAL;C:\Program Files (x86)\Intel\Intel(R) Management Engine Components\IPT;C:\Program Files\Intel\Intel(R) Management Engine Components\IPT;C:\ProgramData\chocolatey\bin;C:\Program Files\dotnet\;C:\Users\tezza\AppData\Local\Volta\bin;C:\Users\tezza\.cargo\bin;C:\Users\tezza\AppData\Local\Microsoft\WindowsApps;C:\Users\tezza\AppData\Local\Programs\Microsoft VS Code\bin;C:\tools\mingw64\bin;C:\Program Files\CMake\bin;C:\tools;C:\Users\tezza\AppData\Local\gitkraken\bin;C:\Users\tezza\AppData\Roaming\npm;C:\Users\tezza\AppData\Roaming\itch\apps\butler;S:\Programs\UnityEditors\2019.4.19f1\Editor;C:\Program Files (x86)\GitHub CLI\;C:\Program Files\LLVM\bin;C:\Program Files (x86)\GnuWin32\bin;C:\tools\neovim\Neovim\bin;C:\Users\tezza\.dotnet\tools;
+# environment
+COMMONPROGRAMW6432 = C:\Program Files\Common Files
+# environment
+CHOCOLATEYLASTPATHUPDATE = 132794810334411162
+# environment
+PROCESSOR_ARCHITECTURE = x86
+# environment
+USERPROFILE = C:\Users\tezza
+# environment
+CHOCOLATEYINSTALL = C:\ProgramData\chocolatey
+# environment
+ALLUSERSPROFILE = C:\ProgramData
+# envir 
+onment
+NUMBER_OF_PROCESSORS = 4
+# environment
+ELECTRON_RUN_AS_NODE = 1
+# default
+.FEATURES := target-specific order-only second-expansion else-if archives
+# environment
+OCULUSBASE = C:\Program Files\Oculus\
+# environment
+VK_SDK_PATH = C:\VulkanSDK\1.2.162.1
+# automatic
+%F = $(notdir $%)
+# environment
+CHROME_CRASHPAD_PIPE_NAME = \\.\pipe\crashpad_1832_OBHMSJIKMKOVTPTJ
+# environment
+COMPUTERNAME = WILLIAM-PC
+# environment
+PROGRAMFILES = C:\Program Files (x86)
+# environment
+DRIVERDATA = C:\Windows\System32\Dri 
+vers\DriverData
+# environment
+ORIGINAL_XDG_CURRENT_DESKTOP = undefined
+# environment
+USERNAME = tezza
+# environment
+PUBLIC = C:\Users\Public
+# environment
+VSCODE_AMD_ENTRYPOINT = vs/workbench/api/node/extensionHostProcess
+# environment
+CHOCOLATEYTOOLSLOCATION = C:\tools
+# environment
+VSCODE_CODE_CACHE_PATH = C:\Users\tezza\AppData\Roaming\Code\CachedData\e4503b30fc78200f846c62cf8091b76ff5547662
+# environment
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
+# environment
+COMMONPROGRAMFILES = C:\Program Files ( 
+x86)\Common Files
+# environment
+LOGONSERVER = \\WILLIAM-PC
+# environment
+ONEDRIVECONSUMER = E:\tezza\OneDrive
+# environment
+VSCODE_HANDLES_UNCAUGHT_ERRORS = true
+# environment
+USERDOMAIN = WILLIAM-PC
+# default
+MAKE = $(MAKE_COMMAND)
+# default
+MAKECMDGOALS := all
+# default
+MAKE_VERSION := 3.81
+# makefile
+.DEFAULT_GOAL := clean
+# environment
+PROGRAMFILES(X86) = C:\Program Files (x86)
+# automatic
+%D = $(patsubst %/,%,$(dir $%))
+# environment
+LOCALAPPDATA = C:\Users\tezza\AppData\Local
+# environment
+PSMODULEPAT 
+H = C:\Program Files\WindowsPowerShell\Modules;C:\Windows\system32\WindowsPowerShell\v1.0\Modules
+# default
+MAKE_COMMAND := make.exe
+# environment
+PROCESSOR_ARCHITEW6432 = AMD64
+# default
+.VARIABLES := 
+# automatic
+*F = $(notdir $*)
+# environment
+PROCESSOR_IDENTIFIER = Intel64 Family 6 Model 94 Stepping 3, GenuineIntel
+# environment
+OS = Windows_NT
+# environment
+VSCODE_IPC_HOOK = \\.\pipe\cc118ca15424d5f3bbabe42fb7e234c8-1.70.2-main-sock
+# environment
+HOMEPATH = \Users\tezza
+# environment
+COMMONPROGRAMFILES 
+(X86) = C:\Program Files (x86)\Common Files
+# environment
+PROMPT = $P$G
+# environment
+MFLAGS = -Rrqp
+# automatic
+*D = $(patsubst %/,%,$(dir $*))
+# environment
+SYSTEMROOT = C:\Windows
+# automatic
++D = $(patsubst %/,%,$(dir $+))
+# automatic
++F = $(notdir $+)
+# environment
+APPDATA = C:\Users\tezza\AppData\Roaming
+# environment
+TEMP = C:\Users\tezza\AppData\Local\Temp
+# environment
+COMSPEC = C:\Windows\system32\cmd.exe
+# default
+MAKEFILES := 
+# automatic
+<F = $(notdir $<)
+# environment
+DXSDK_DIR = C:\Program Fi 
+les (x86)\Microsoft DirectX SDK (June 2010)\
+# environment
+LC_ALL = C
+# automatic
+^F = $(notdir $^)
+# default
+SUFFIXES := 
+# environment
+SYSTEMDRIVE = C:
+# environment
+SESSIONNAME = Console
+# environment
+PROCESSOR_REVISION = 5e03
+# environment
+MAKELEVEL := 0
+# environment
+VULKAN_SDK = C:\VulkanSDK\1.2.162.1
+# environment
+LANG = C
+# environment
+PROCESSOR_LEVEL = 6
+# environment
+VSCODE_PID = 1832
+# environment
+USERDOMAIN_ROAMINGPROFILE = WILLIAM-PC
+# variable set hash-table stats:
+# Load=92/1024=9%, Rehash=0, 
+ Collisions=9/112=8%
+
+# Pattern-specific Variable Values
+
+# No pattern-specific variable values.
+
+# Directories
+
+# C:\Program Files\Oculus\Support\oculus-runtime (key C:/Program Files/Oculus/Support/oculus-runtime, mtime 1638068942): 36 files, no impossibilities.
+# C:\Program Files (x86)\Intel\Intel(R) Management Engine Components\iCLS\ (key C:/Program Files (x86)/Intel/Intel(R) Management Engine Components/iCLS/, mtime 1628180141): 8 files, no impossibilities.
+# C:\Program Files\LLVM\bin (key C:/Program Fi 
+les/LLVM/bin, mtime 1625265059): 110 files, no impossibilities.
+# C:\Windows\System32\WindowsPowerShell\v1.0\ (key C:/Windows/System32/WindowsPowerShell/v1.0/, mtime 1602889961): 30 files, no impossibilities.
+# C:\Windows\System32\Wbem (key C:/Windows/System32/Wbem, mtime 1658011545): 154 files, no impossibilities.
+# . (key e:/dev/the-br-in-c, mtime 1661702120): 12 files, no impossibilities.
+# C:\Program Files\Volta\ (key C:/Program Files/Volta/, mtime 1642299403): 12 files, no impossibilities.
+# C:\Users\tezza\AppData\Roaming\itch\apps\butler (key C:/Users/tezza/AppData/Roaming/itch/apps/butler, mtime 1612634331): 6 files, no impossibilities.
+# C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common (key C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common, mtime 1601503184): 10 files, no impossibilities.
+# C:\Users\tezza\AppData\Local\Programs\Microsoft VS Code\bin (key C:/Users/tezza/AppData/Local/Programs/Microsoft VS Code/bin, mtime 1660759953): 4 files, no impossibilities.
+# C:\ProgramData\chocolatey\bin (key C:/ProgramData/chocolatey/bin, mtime 1635007092): 13 files, no impossibilities.
+# C:\Program Files\nodejs\ (key C:/Program Files/nodejs/, mtime 1612094385): 11 files, no impossibilities.
+# C:\Users\tezza\AppData\Roaming\npm (key C:/Users/tezza/AppData/Roaming/npm, mtime 1637425279): 24 files, no impossibilities.
+# C:\Users\tezza\.dotnet\tools: could not be stat'd.
+# C:\VulkanSDK\1.2.162.1\Bin (key C:/VulkanSDK/1.2.162.1/Bin, mtime 1614532443): 44 files, no impossibilities.
+# C:\Program Files\Intel\Intel(R) Management Engine Components\IPT (key C:/Program Files/Intel/Intel(R) Management Engine Components/IPT, mtime 1628180134): 5 files, no impossibilities.
+# C:\Windows\System32\OpenSSH\: could not be stat'd.
+# C:\Users\tezza\.cargo\bin (key C:/Users/tezza/.cargo/bin, mtime 1658250857): 42 files, no impossibilities.
+# C:\Program Files (x86)\Common Files\Oracle\Java\javapath (key C:/Program Files (x86)/Common Files/Oracle/Java/javapath, mtime 1659124145): 5 files, no impossibilities.
+# C:\tools\neovim\Neovim\bin (key C:/tools/neovim/Neovim/bin, mtime 1632697785): 33 files, no impossibilities.
+# C:\Program Files\Intel\Intel(R) Management Engine Components\DAL (key C:/Program Files/Intel/Intel(R) Management Engine Components/DAL, mtime 1628180134): 4 files, no impossibilities.
+# C:\Windows (key C:/Windows, mtime 1660166858): 113 files, no impossibilities.
+# C:\Program Files (x86)\Python38-32\ (key C:/Program Files (x86)/Python38-32/, mtime 1601119773): 17 files, no impossibilities.
+# C:\tools (key C:/tools, mtime 1660431494): 13 files, no impossibilities.
+# C:\Users\tezza\AppData\Local\Microsoft\WindowsApps (key C:/Users/tezza/AppData/Local/Microsoft/WindowsApps, mtime 1661671098): 21 files, no impossibilities.
+# C:\Program Files\Intel\Intel(R) Management Engine Components\iCLS\ (key C:/Program Files/Intel/Intel(R) Management Engine Components/iCLS/, mtime 1628180140): 11 files, no impossibilities.
+# C:\Program Files (x86)\Python38-32\Scripts\ (key C:/Program Files (x86)/Python38-32/Scripts/, mtime 1601119778): 7 files, no impossibilities.
+# C:\tools\mingw64\bin (key C:/tools/mingw64/bin, mtime 1660159795): 393 files, no impossibilities.
+# C:\Program Files\CMake\bin (key C:/Program Files/CMake/bin, mtime 1601119691): 7 files, no impossibilities.
+# C:\Program Files\dotnet\ (key C:/Program Files/dotnet/, mtime 1647731706): 10 files, no impossibilities.
+# S:\Programs\UnityEditors\2019.4.19f1\Editor (key S:/Programs/UnityEditors/2019.4.19f1/Editor, mtime 1612635782): 44 files, no impossibilities.
+# C:\Users\tezza\AppData\Local\gitkraken\bin (key C:/Users/tezza/AppData/Local/gitkraken/bin, mtime 1612023835): 3 files, no impossibilities.
+# C:\Program Files (x86)\GitHub CLI\ (key C:/Program Files (x86)/GitHub CLI/, mtime 1615153888): 3 files, no impossibilities.
+# C:\Program Files\Git\cmd (key C:/Program Files/Git/cmd, mtime 1593191889): 8 files, no impossibilities.
+# C:\Windows\system32 (key C:/Windows/system32, mtime 1660334697): 3051 files, no impossibilities.
+# C:\Program Files (x86)\Intel\Intel(R) Management Engine Components\IPT (key C:/Program Files (x86)/Intel/Intel(R) Management Engine Components/IPT, mtime 1628180134): 6 files, no impossibilities.
+# C:\Users\tezza\AppData\Local\Volta\bin (key C:/Users/tezza/AppData/Local/Volta/bin, mtime 1642299403): 2 files, no impossibilities.
+# C:\Program Files\NVIDIA Corporation\NVIDIA NvDLISR (key C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR, mtime 1601503203): 5 files, no impossibilities.
+# C:\Program Files (x86)\Intel\Intel(R) Management Engine Components\DAL (key C:/Program Files (x86)/Intel/Intel(R) Management Engine Components/DAL, mtime 1628180134): 10 files, no impossibilities.
+# C:\Program Files (x86)\GnuWin32\bin (key C:/Program Files (x86)/GnuWin32/bin, mtime 1625267312): 105 files, no impossibilities.
+
+# 4392 files, no impossibilities in 40 directories.
+
+# Implicit Rules
+
+# No implicit rules.
+
+# Files
+
+# Not a target:
+all:
+#  Command-line target.
+#  Implicit rule search has been done.
+#  File does not exist.
+#  File has not been updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+# Not a target:
+.DEFAULT:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+makefile:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-28 17:52:13
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+build:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  commands to execute (from `makefile', line 9):
+	@echo "Starting now"
+	@echo $(SRC)
+	@echo "done now"
+	cp ./assets/* -r ./dist
+	gcc -fdiagnostics-color=always -O0 -g -std=c17 $(SRC) -I./include -L./lib -Wall -lmingw32 -lSDL2main -lSDL2 -o ./dist/game
+	
+
+# Not a target:
+.SUFFIXES:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+dist/game.exe:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+run: build dist/game.exe
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  commands to execute (from `makefile', line 17):
+	./dist/game.exe
+	
+
+clean: dist/game.exe
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  commands to execute (from `makefile', line 6):
+	rm ./dist/game.exe
+	
+
+# files hash-table stats:
+# Load=8/1024=1%, Rehash=0, Collisions=0/22=0%
+# VPATH Search Paths
+
+# No `vpath' search paths.
+
+# No general (`VPATH' variable) search path.
+
+# # of strings in strcache: 1
+# # of strcache buffers: 1
+# strcache size: total = 4096 / max = 4096 / min = 4096 / avg = 4096
+# strcache free: total = 4087 / max = 4087 / min = 4087 / avg = 4087
+
+# Finished Make data base on Sun Aug 28 17:52:19 2022
+
+ 
+make.exe: *** No rule to make target `all'.  Stop.
+

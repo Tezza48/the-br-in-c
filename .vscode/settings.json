@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "compare": "c",
+        "*.tcc": "c",
+        "cmath": "c",
+        "type_traits": "c",
+        "typeinfo": "c",
+        "stdlib.h": "c",
+        "sdl.h": "c",
+        "stdint.h": "c",
+        "stdint-gcc.h": "c",
+        "cstdint": "c",
+        "assert.h": "c"
+    }
+}
