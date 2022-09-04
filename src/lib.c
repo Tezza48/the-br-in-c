@@ -7,43 +7,45 @@
 #include <assert.h>
 #include "vec.h"
 
-#define GL_CALL(x)                                                                                                          \
-    x;                                                                                                                      \
-    {                                                                                                                       \
-        GLenum dump_gl_errors_error;                                                                                        \
-        while ((dump_gl_errors_error = glGetError()) != GL_NO_ERROR)                                                        \
-        {                                                                                                                   \
-            char *dump_gl_errors_error_string;                                                                              \
-            switch (dump_gl_errors_error)                                                                                   \
-            {                                                                                                               \
-            case GL_NO_ERROR:                                                                                               \
-                dump_gl_errors_error_string = "GL_NO_ERROR";                                                                \
-                break;                                                                                                      \
-            case GL_INVALID_ENUM:                                                                                           \
-                dump_gl_errors_error_string = "GL_INVALID_ENUM";                                                            \
-                break;                                                                                                      \
-            case GL_INVALID_VALUE:                                                                                          \
-                dump_gl_errors_error_string = "GL_INVALID_VALUE";                                                           \
-                break;                                                                                                      \
-            case GL_INVALID_OPERATION:                                                                                      \
-                dump_gl_errors_error_string = "GL_INVALID_OPERATION";                                                       \
-                break;                                                                                                      \
-            case GL_INVALID_FRAMEBUFFER_OPERATION:                                                                          \
-                dump_gl_errors_error_string = "GL_INVALID_FRAMEBUFFER_OPERATION";                                           \
-                break;                                                                                                      \
-            case GL_OUT_OF_MEMORY:                                                                                          \
-                dump_gl_errors_error_string = "GL_OUT_OF_MEMORY";                                                           \
-                break;                                                                                                      \
-            case GL_STACK_UNDERFLOW:                                                                                        \
-                dump_gl_errors_error_string = "GL_STACK_UNDERFLOW";                                                         \
-                break;                                                                                                      \
-            case GL_STACK_OVERFLOW:                                                                                         \
-                dump_gl_errors_error_string = "GL_STACK_OVERFLOW";                                                          \
-                break;                                                                                                      \
-            }                                                                                                               \
-            printf("GL ERROR:\n\t%s:%d: 0x%x %s\n", __FILE__, __LINE__, dump_gl_errors_error, dump_gl_errors_error_string); \
-        }                                                                                                                   \
+#include "ecs.h"
+
+#define X_OPENGL_ERRORS                 \
+    X(GL_NO_ERROR)                      \
+    X(GL_INVALID_ENUM)                  \
+    X(GL_INVALID_VALUE)                 \
+    X(GL_INVALID_OPERATION)             \
+    X(GL_INVALID_FRAMEBUFFER_OPERATION) \
+    X(GL_OUT_OF_MEMORY)                 \
+    X(GL_STACK_UNDERFLOW)               \
+    X(GL_STACK_OVERFLOW)
+
+#define X(error)                       \
+    case error:                        \
+    {                                  \
+        dump_gl_errors_error = #error; \
+        break;                         \
     }
+void GL_CALL_IMPL(char *file, size_t line)
+{
+    GLenum dump_gl_errors_error;
+    while ((dump_gl_errors_error = glGetError()) != GL_NO_ERROR)
+    {
+
+        char *dump_gl_errors_error_string;
+        switch (dump_gl_errors_error)
+        {
+            X_OPENGL_ERRORS
+        }
+
+        printf("GL ERROR:\n\t%s:%d: 0x%x %s\n", __FILE__, __LINE__, dump_gl_errors_error, dump_gl_errors_error_string);
+    }
+}
+#undef X
+#undef X_OPENGL_ERRORS
+
+#define GL_CALL(x) \
+    x;             \
+    GL_CALL_IMPL(__FILE__, __LINE__)
 
 char *readFileToString(const char *path)
 {
@@ -151,6 +153,8 @@ GLuint createAndCompileShader(const char *path, GLenum type)
 
 lib_start_result lib_start()
 {
+    ecs_t ecs = ecs_init();
+
     SDL_Window *window = SDL_CreateWindow("Hello, SDL!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 360, SDL_WINDOW_OPENGL);
     if (!window)
     {
