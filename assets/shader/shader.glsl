@@ -1,3 +1,6 @@
+uniform mat4 mat_view_proj;
+
+
 #if COMPILE_VERTEX_SHADER == 1
 
 layout(location = 0) in vec3 vert_position;
@@ -6,7 +9,7 @@ layout(location = 1) in vec2 vert_uv;
 out vec2 vert_to_frag_uv;
 
 void main() {
-    gl_Position = vec4(vert_position, 1.0);
+    gl_Position = vec4(vert_position, 1.0) * mat_view_proj;
     vert_to_frag_uv = vert_uv;
 }
 

@@ -10,6 +10,7 @@
         "stdint.h": "c",
         "stdint-gcc.h": "c",
         "cstdint": "c",
-        "assert.h": "c"
+        "assert.h": "c",
+        "mathc.h": "c"
     }
 }

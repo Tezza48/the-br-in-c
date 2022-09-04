@@ -6,9 +6,49 @@
 #include <stdint.h>
 #include <assert.h>
 #include "vec.h"
+#include "vendor/linmath.h"
 
-#include "ecs.h"
+typedef struct vertex_t
+{
+    vec3 pos;
+    vec2 uv;
+} vertex_t;
 
+typedef struct mesh_t
+{
+    GLuint vertex_buffer;
+    size_t num_vertices;
+    struct
+    {
+        GLuint index_buffer;
+        size_t num_indices;
+    } * index_buffers;
+    size_t num_index_buffers;
+
+} mesh_t;
+
+typedef struct model_data_t
+{
+    vertex_t *vertices;
+    size_t num_vertices;
+    struct
+    {
+        int32_t *indices;
+        size_t num_indices;
+    } * index_buffers;
+    size_t num_index_buffers;
+} model_data_t;
+
+typedef struct camera_t
+{
+    vec2 pos;
+    float aspect;
+    float size;
+    mat4x4 view_proj;
+} camera_t;
+
+void GL_CALL_IMPL(char *file, size_t line)
+{
 #define X_OPENGL_ERRORS                 \
     X(GL_NO_ERROR)                      \
     X(GL_INVALID_ENUM)                  \
@@ -18,30 +58,28 @@
     X(GL_OUT_OF_MEMORY)                 \
     X(GL_STACK_UNDERFLOW)               \
     X(GL_STACK_OVERFLOW)
+#define X(error)                              \
+    case error:                               \
+        dump_gl_errors_error_string = #error; \
+        break;
 
-#define X(error)                       \
-    case error:                        \
-    {                                  \
-        dump_gl_errors_error = #error; \
-        break;                         \
-    }
-void GL_CALL_IMPL(char *file, size_t line)
-{
     GLenum dump_gl_errors_error;
     while ((dump_gl_errors_error = glGetError()) != GL_NO_ERROR)
     {
 
-        char *dump_gl_errors_error_string;
+        const char *dump_gl_errors_error_string;
         switch (dump_gl_errors_error)
         {
+
             X_OPENGL_ERRORS
         }
 
         printf("GL ERROR:\n\t%s:%d: 0x%x %s\n", __FILE__, __LINE__, dump_gl_errors_error, dump_gl_errors_error_string);
     }
-}
+
 #undef X
 #undef X_OPENGL_ERRORS
+}
 
 #define GL_CALL(x) \
     x;             \
@@ -153,9 +191,8 @@ GLuint createAndCompileShader(const char *path, GLenum type)
 
 lib_start_result lib_start()
 {
-    ecs_t ecs = ecs_init();
-
-    SDL_Window *window = SDL_CreateWindow("Hello, SDL!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 360, SDL_WINDOW_OPENGL);
+    float window_width = 640, window_height = 360;
+    SDL_Window *window = SDL_CreateWindow("Hello, SDL!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_OPENGL);
     if (!window)
     {
         return 0;
@@ -192,31 +229,40 @@ lib_start_result lib_start()
             char *vBuffName = "Quad(VertexBuffer)";
             GL_CALL(glObjectLabel(GL_BUFFER, vBuffer, -1, vBuffName));
 
-            float vertices[6][5] = {
-                {-0.5, -0.5, 0.0, 0.0, 0.0},
-                {-0.5, 0.5, 0.0, 0.0, 1.0},
-                {0.5, 0.5, 0.0, 1.0, 1.0},
+            vertex_t vertices[6] = {
+                {{-0.5, -0.5, 0.0}, {0.0, 0.0}},
+                {{-0.5, 0.5, 0.0}, {0.0, 1.0}},
+                {{0.5, 0.5, 0.0}, {1.0, 1.0}},
 
-                {-0.5, -0.5, 0.0, 0.0, 0.0},
-                {0.5, 0.5, 0.0, 1.0, 1.0},
-                {0.5, -0.5, 0.0, 1.0, 0.0},
+                {{-0.5, -0.5, 0.0}, {0.0, 0.0}},
+                {{0.5, 0.5, 0.0}, {1.0, 1.0}},
+                {{0.5, -0.5, 0.0}, {1.0, 0.0}},
             };
 
-            GL_CALL(glNamedBufferData(vBuffer, sizeof(vertices), vertices, GL_STATIC_DRAW));
+            GL_CALL(glNamedBufferData(vBuffer, sizeof(vertices), (void *)vertices, GL_STATIC_DRAW));
         }
 
         GL_CALL(glBindVertexArray(vao));
         GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, vBuffer));
 
         GL_CALL(glEnableVertexAttribArray(0));
-        GL_CALL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, 0));
+        GL_CALL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_t), 0));
         GL_CALL(glEnableVertexAttribArray(1));
-        GL_CALL(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (const void *)(sizeof(float) * 3)));
+        GL_CALL(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)offsetof(vertex_t, uv)));
         GL_CALL(glBindVertexArray(0));
     }
 
     GLenum shader_types[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
     GLuint program = create_program("./shader/shader.glsl", shader_types, 2);
+
+    camera_t camera = {
+        .pos = {0.0, 0.0},
+        .aspect = window_width / window_height,
+        .size = 5,
+    };
+
+    float w = camera.size / 2, h = (camera.size / 2) / camera.aspect;
+    mat4x4_ortho(camera.view_proj, -w, w, -h, h, -0, 100);
 
     uint8_t running = 1;
     while (running)
@@ -241,6 +287,8 @@ lib_start_result lib_start()
         GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
 
         GL_CALL(glUseProgram(program));
+
+        glUniformMatrix4fv(glGetUniformLocation(program, "mat_view_proj"), 1, GL_FALSE, camera.view_proj[0]);
 
         GL_CALL(glBindVertexArray(vao));
         GL_CALL(glDrawArrays(GL_TRIANGLES, 0, 6));
