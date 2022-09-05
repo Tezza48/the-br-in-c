@@ -14,30 +14,120 @@ typedef struct vertex_t
     vec2 uv;
 } vertex_t;
 
-typedef struct mesh_t
+typedef struct sprite_t
 {
+    vec3 pos;
+    vec2 scale;
+    vec4 color;
+} sprite_t;
+
+typedef vertex_t sprite_quad_t[6];
+
+typedef struct sprite_batch_t
+{
+    GLuint vertex_array;
     GLuint vertex_buffer;
-    size_t num_vertices;
-    struct
-    {
-        GLuint index_buffer;
-        size_t num_indices;
-    } * index_buffers;
-    size_t num_index_buffers;
+    sprite_quad_t *quads_vertices;
+    size_t num_quads;
+    GLuint program;
+    size_t max_batch_size;
+} sprite_batch_t;
 
-} mesh_t;
-
-typedef struct model_data_t
+sprite_batch_t sprite_batch_new(GLuint program, size_t max_batch_size)
 {
-    vertex_t *vertices;
-    size_t num_vertices;
-    struct
+    sprite_batch_t result = {0};
+    result.program = program;
+
+    glCreateVertexArrays(1, &result.vertex_array);
+    glBindVertexArray(result.vertex_array);
+
+    glCreateBuffers(1, &result.vertex_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, result.vertex_buffer);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)offsetof(vertex_t, uv));
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    result.num_quads = 0;
+    result.quads_vertices = calloc(max_batch_size, sizeof(sprite_quad_t));
+
+    return result;
+}
+
+void sprite_batch_free(sprite_batch_t *self)
+{
+    free(self->quads_vertices);
+    glDeleteBuffers(1, &self->vertex_buffer);
+    glDeleteVertexArrays(1, &self->vertex_array);
+
+    *self = (sprite_batch_t){0};
+}
+
+void sprite_batch_flush(sprite_batch_t *self)
+{
+    glNamedBufferData(self->vertex_buffer, self->num_quads * sizeof(sprite_quad_t), self->quads_vertices, GL_STATIC_DRAW);
+
+    glUseProgram(self->program);
+    glBindVertexArray(self->vertex_array);
+
+    glDrawArrays(GL_TRIANGLES, 0, self->num_quads * 6);
+    self->num_quads = 0;
+}
+
+size_t sprite_batch_draw(sprite_batch_t *self, sprite_t *sprite)
+{
+    sprite_quad_t vertices = {
+        {{
+             sprite->pos[0],
+             sprite->pos[1],
+             sprite->pos[2],
+         },
+         {0.0, 0.0}},
+        {{
+             sprite->pos[0],
+             sprite->pos[1] + sprite->scale[1],
+             sprite->pos[2],
+         },
+         {0.0, 1.0}},
+        {{
+             sprite->pos[0] + sprite->scale[0],
+             sprite->pos[1] + sprite->scale[1],
+             sprite->pos[2],
+         },
+         {1.0, 1.0}},
+        {{
+             sprite->pos[0],
+             sprite->pos[1],
+             sprite->pos[2],
+         },
+         {0.0, 0.0}},
+        {{
+             sprite->pos[0] + sprite->scale[0],
+             sprite->pos[1] + sprite->scale[1],
+             sprite->pos[2],
+         },
+         {1.0, 1.0}},
+        {{
+             sprite->pos[0] + sprite->scale[0],
+             sprite->pos[1],
+             sprite->pos[2],
+         },
+         {1.0, 0.0}},
+    };
+
+    memcpy_s(&self->quads_vertices[self->num_quads++], sizeof(sprite_quad_t), vertices, sizeof(sprite_quad_t));
+
+    if (self->num_quads == self->max_batch_size)
     {
-        int32_t *indices;
-        size_t num_indices;
-    } * index_buffers;
-    size_t num_index_buffers;
-} model_data_t;
+        sprite_batch_flush(self);
+        return 1;
+    }
+
+    return 0;
+}
 
 typedef struct camera_t
 {
@@ -215,50 +305,51 @@ lib_start_result lib_start()
         return 0;
     }
 
-    GLuint vao;
-    {
-        GL_CALL(glGenVertexArrays(1, &vao));
-        GL_CALL(glBindVertexArray(vao));
-    }
+    // GLuint vao;
+    // {
+    //     GL_CALL(glGenVertexArrays(1, &vao));
+    //     GL_CALL(glBindVertexArray(vao));
+    // }
 
-    GLuint vBuffer;
-    {
-        {
-            GL_CALL(glCreateBuffers(1, &vBuffer));
+    // GLuint vBuffer;
+    // {
+    //     {
+    //         GL_CALL(glCreateBuffers(1, &vBuffer));
 
-            char *vBuffName = "Quad(VertexBuffer)";
-            GL_CALL(glObjectLabel(GL_BUFFER, vBuffer, -1, vBuffName));
+    //         char *vBuffName = "Quad(VertexBuffer)";
+    //         GL_CALL(glObjectLabel(GL_BUFFER, vBuffer, -1, vBuffName));
 
-            vertex_t vertices[6] = {
-                {{-0.5, -0.5, 0.0}, {0.0, 0.0}},
-                {{-0.5, 0.5, 0.0}, {0.0, 1.0}},
-                {{0.5, 0.5, 0.0}, {1.0, 1.0}},
+    //         vertex_t vertices[6] = {
+    //             {{-0.5, -0.5, 0.0}, {0.0, 0.0}},
+    //             {{-0.5, 0.5, 0.0}, {0.0, 1.0}},
+    //             {{0.5, 0.5, 0.0}, {1.0, 1.0}},
 
-                {{-0.5, -0.5, 0.0}, {0.0, 0.0}},
-                {{0.5, 0.5, 0.0}, {1.0, 1.0}},
-                {{0.5, -0.5, 0.0}, {1.0, 0.0}},
-            };
+    //             {{-0.5, -0.5, 0.0}, {0.0, 0.0}},
+    //             {{0.5, 0.5, 0.0}, {1.0, 1.0}},
+    //             {{0.5, -0.5, 0.0}, {1.0, 0.0}},
+    //         };
 
-            GL_CALL(glNamedBufferData(vBuffer, sizeof(vertices), (void *)vertices, GL_STATIC_DRAW));
-        }
+    //         GL_CALL(glNamedBufferData(vBuffer, sizeof(vertices), (void *)vertices, GL_STATIC_DRAW));
+    //     }
 
-        GL_CALL(glBindVertexArray(vao));
-        GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, vBuffer));
+    //     GL_CALL(glBindVertexArray(vao));
+    //     GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, vBuffer));
 
-        GL_CALL(glEnableVertexAttribArray(0));
-        GL_CALL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_t), 0));
-        GL_CALL(glEnableVertexAttribArray(1));
-        GL_CALL(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)offsetof(vertex_t, uv)));
-        GL_CALL(glBindVertexArray(0));
-    }
+    //     GL_CALL(glEnableVertexAttribArray(0));
+    //     GL_CALL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_t), 0));
+    //     GL_CALL(glEnableVertexAttribArray(1));
+    //     GL_CALL(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)offsetof(vertex_t, uv)));
+    //     GL_CALL(glBindVertexArray(0));
+    // }
 
     GLenum shader_types[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
     GLuint program = create_program("./shader/shader.glsl", shader_types, 2);
+    sprite_batch_t sprite_batch = sprite_batch_new(program, 1024);
 
     camera_t camera = {
         .pos = {0.0, 0.0},
         .aspect = window_width / window_height,
-        .size = 5,
+        .size = 10,
     };
 
     float w = camera.size / 2, h = (camera.size / 2) / camera.aspect;
@@ -290,15 +381,22 @@ lib_start_result lib_start()
 
         glUniformMatrix4fv(glGetUniformLocation(program, "mat_view_proj"), 1, GL_FALSE, camera.view_proj[0]);
 
-        GL_CALL(glBindVertexArray(vao));
-        GL_CALL(glDrawArrays(GL_TRIANGLES, 0, 6));
+        sprite_t sprite = {
+            {0.0, 0.0, 0.0},
+            {1.0, 1.0},
+            {1.0, 1.0, 1.0},
+        };
+        size_t did_batcher_flush = sprite_batch_draw(&sprite_batch, &sprite);
 
-        GL_CALL(glBindVertexArray(0));
+        if (!did_batcher_flush)
+        {
+            sprite_batch_flush(&sprite_batch);
+        }
 
         SDL_GL_SwapWindow(window);
     }
 
-    GL_CALL(glDeleteBuffers(1, &vBuffer));
+    sprite_batch_free(&sprite_batch);
     GL_CALL(glDeleteProgram(program));
 
     SDL_DestroyWindow(window);
