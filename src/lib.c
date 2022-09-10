@@ -7,6 +7,93 @@
 #include <assert.h>
 #include "vec.h"
 #include "vendor/linmath.h"
+#include <string.h>
+
+// typedef struct list_node_t
+// {
+//     list_node_t *next;
+//     void *data;
+// } list_node_t;
+
+// size_t list_length(list_node_t *head)
+// {
+//     size_t length = 1;
+//     while (head->next)
+//     {
+//         length++;
+//         head = head->next;
+//     }
+// }
+
+typedef struct component_t
+{
+    const char *type_name;
+    void *component;
+} component_t;
+
+typedef struct entity_t
+{
+    component_t *components;
+    size_t num_components;
+} entity_t;
+
+#define COMPONENT(name)                                                                                      \
+    inline static component_t *entity_get_##name##_component(entity_t *entity)                               \
+    {                                                                                                        \
+        for (size_t i = 0; i < entity->num_components; i++)                                                  \
+        {                                                                                                    \
+            if (strcmp(entity->components[i].type_name, #name) == 0)                                         \
+            {                                                                                                \
+                return &entity->components[i];                                                               \
+            }                                                                                                \
+        }                                                                                                    \
+        return 0;                                                                                            \
+    }                                                                                                        \
+    inline static name##_t *entity_get_##name(entity_t *entity)                                              \
+    {                                                                                                        \
+        component_t *component = entity_get_##name##_component(entity);                                      \
+        if (component)                                                                                       \
+            return (name##_t *)component->component;                                                         \
+        return 0;                                                                                            \
+    }                                                                                                        \
+    inline static name##_t *entity_add_##name(entity_t *entity)                                              \
+    {                                                                                                        \
+        /* Check that there isn't already a component of that type*/                                         \
+        if (entity_get_##name##_component(entity))                                                           \
+        {                                                                                                    \
+            return 0;                                                                                        \
+        }                                                                                                    \
+                                                                                                             \
+        component_t *new_data = realloc(entity->components, ++entity->num_components * sizeof(component_t)); \
+        assert(new_data);                                                                                    \
+        entity->components = new_data;                                                                       \
+        entity->components[entity->num_components - 1] = (component_t){#name, calloc(1, sizeof(name##_t))};  \
+        return (name##_t *)entity->components[entity->num_components - 1].component;                         \
+    }                                                                                                        \
+    inline static void entity_remove_##name(entity_t *entity)                                                \
+    {                                                                                                        \
+        component_t *component = entity_get_##name##_component(entity);                                      \
+        if (!component)                                                                                      \
+            return;                                                                                          \
+        free(component->component);                                                                          \
+        component_t *new_data = realloc(entity->components, --entity->num_components);                       \
+        assert(new_data);                                                                                    \
+        entity->components = new_data;                                                                       \
+    }
+
+entity_t entity_create(void)
+{
+    return (entity_t){
+        malloc(0),
+        0,
+    };
+}
+
+void entity_free(entity_t *entity)
+{
+    free(entity->components);
+    *entity = (entity_t){0};
+}
 
 typedef struct vertex_t
 {
@@ -20,6 +107,8 @@ typedef struct sprite_t
     vec2 scale;
     vec4 color;
 } sprite_t;
+
+COMPONENT(sprite);
 
 typedef vertex_t sprite_quad_t[6];
 
@@ -305,43 +394,6 @@ lib_start_result lib_start()
         return 0;
     }
 
-    // GLuint vao;
-    // {
-    //     GL_CALL(glGenVertexArrays(1, &vao));
-    //     GL_CALL(glBindVertexArray(vao));
-    // }
-
-    // GLuint vBuffer;
-    // {
-    //     {
-    //         GL_CALL(glCreateBuffers(1, &vBuffer));
-
-    //         char *vBuffName = "Quad(VertexBuffer)";
-    //         GL_CALL(glObjectLabel(GL_BUFFER, vBuffer, -1, vBuffName));
-
-    //         vertex_t vertices[6] = {
-    //             {{-0.5, -0.5, 0.0}, {0.0, 0.0}},
-    //             {{-0.5, 0.5, 0.0}, {0.0, 1.0}},
-    //             {{0.5, 0.5, 0.0}, {1.0, 1.0}},
-
-    //             {{-0.5, -0.5, 0.0}, {0.0, 0.0}},
-    //             {{0.5, 0.5, 0.0}, {1.0, 1.0}},
-    //             {{0.5, -0.5, 0.0}, {1.0, 0.0}},
-    //         };
-
-    //         GL_CALL(glNamedBufferData(vBuffer, sizeof(vertices), (void *)vertices, GL_STATIC_DRAW));
-    //     }
-
-    //     GL_CALL(glBindVertexArray(vao));
-    //     GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, vBuffer));
-
-    //     GL_CALL(glEnableVertexAttribArray(0));
-    //     GL_CALL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_t), 0));
-    //     GL_CALL(glEnableVertexAttribArray(1));
-    //     GL_CALL(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)offsetof(vertex_t, uv)));
-    //     GL_CALL(glBindVertexArray(0));
-    // }
-
     GLenum shader_types[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
     GLuint program = create_program("./shader/shader.glsl", shader_types, 2);
     sprite_batch_t sprite_batch = sprite_batch_new(program, 1024);
@@ -354,6 +406,15 @@ lib_start_result lib_start()
 
     float w = camera.size / 2, h = (camera.size / 2) / camera.aspect;
     mat4x4_ortho(camera.view_proj, -w, w, -h, h, -0, 100);
+
+    entity_t entity = entity_create();
+    sprite_t *sprite = entity_add_sprite(&entity);
+    assert(sprite);
+    *sprite = (sprite_t){
+        {0.0, 0.0, 0.0},
+        {1.0, 1.0},
+        {1.0, 1.0, 1.0},
+    };
 
     uint8_t running = 1;
     while (running)
@@ -380,13 +441,7 @@ lib_start_result lib_start()
         GL_CALL(glUseProgram(program));
 
         glUniformMatrix4fv(glGetUniformLocation(program, "mat_view_proj"), 1, GL_FALSE, camera.view_proj[0]);
-
-        sprite_t sprite = {
-            {0.0, 0.0, 0.0},
-            {1.0, 1.0},
-            {1.0, 1.0, 1.0},
-        };
-        size_t did_batcher_flush = sprite_batch_draw(&sprite_batch, &sprite);
+        size_t did_batcher_flush = sprite_batch_draw(&sprite_batch, entity_get_sprite(&entity));
 
         if (!did_batcher_flush)
         {
