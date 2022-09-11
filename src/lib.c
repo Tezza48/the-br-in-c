@@ -1,6 +1,5 @@
 #include "lib.h"
 #include <stdio.h>
-#include <glad/glad.h>
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -8,6 +7,7 @@
 #include "vec.h"
 #include "vendor/linmath.h"
 #include <string.h>
+#include "engine/engine.h"
 
 // typedef struct list_node_t
 // {
@@ -25,90 +25,23 @@
 //     }
 // }
 
-typedef struct component_t
-{
-    const char *type_name;
-    void *component;
-} component_t;
+typedef size_t entity_id_t;
 
-typedef struct entity_t
+typedef struct sprite_t
 {
-    component_t *components;
-    size_t num_components;
-} entity_t;
-
-#define COMPONENT(name)                                                                                      \
-    inline static component_t *entity_get_##name##_component(entity_t *entity)                               \
-    {                                                                                                        \
-        for (size_t i = 0; i < entity->num_components; i++)                                                  \
-        {                                                                                                    \
-            if (strcmp(entity->components[i].type_name, #name) == 0)                                         \
-            {                                                                                                \
-                return &entity->components[i];                                                               \
-            }                                                                                                \
-        }                                                                                                    \
-        return 0;                                                                                            \
-    }                                                                                                        \
-    inline static name##_t *entity_get_##name(entity_t *entity)                                              \
-    {                                                                                                        \
-        component_t *component = entity_get_##name##_component(entity);                                      \
-        if (component)                                                                                       \
-            return (name##_t *)component->component;                                                         \
-        return 0;                                                                                            \
-    }                                                                                                        \
-    inline static name##_t *entity_add_##name(entity_t *entity)                                              \
-    {                                                                                                        \
-        /* Check that there isn't already a component of that type*/                                         \
-        if (entity_get_##name##_component(entity))                                                           \
-        {                                                                                                    \
-            return 0;                                                                                        \
-        }                                                                                                    \
-                                                                                                             \
-        component_t *new_data = realloc(entity->components, ++entity->num_components * sizeof(component_t)); \
-        assert(new_data);                                                                                    \
-        entity->components = new_data;                                                                       \
-        entity->components[entity->num_components - 1] = (component_t){#name, calloc(1, sizeof(name##_t))};  \
-        return (name##_t *)entity->components[entity->num_components - 1].component;                         \
-    }                                                                                                        \
-    inline static void entity_remove_##name(entity_t *entity)                                                \
-    {                                                                                                        \
-        component_t *component = entity_get_##name##_component(entity);                                      \
-        if (!component)                                                                                      \
-            return;                                                                                          \
-        free(component->component);                                                                          \
-        component_t *new_data = realloc(entity->components, --entity->num_components);                       \
-        assert(new_data);                                                                                    \
-        entity->components = new_data;                                                                       \
-    }
-
-entity_t entity_create(void)
-{
-    return (entity_t){
-        malloc(0),
-        0,
-    };
-}
-
-void entity_free(entity_t *entity)
-{
-    free(entity->components);
-    *entity = (entity_t){0};
-}
+    const entity_id_t entity;
+    vec3 pos;
+    vec2 scale;
+    vec2 anchor;
+    vec4 color;
+} sprite_t;
 
 typedef struct vertex_t
 {
     vec3 pos;
     vec2 uv;
-} vertex_t;
-
-typedef struct sprite_t
-{
-    vec3 pos;
-    vec2 scale;
     vec4 color;
-} sprite_t;
-
-COMPONENT(sprite);
+} vertex_t;
 
 typedef vertex_t sprite_quad_t[6];
 
@@ -137,11 +70,14 @@ sprite_batch_t sprite_batch_new(GLuint program, size_t max_batch_size)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)offsetof(vertex_t, uv));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_TRUE, sizeof(vertex_t), (const void *)offsetof(vertex_t, color));
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     result.num_quads = 0;
     result.quads_vertices = calloc(max_batch_size, sizeof(sprite_quad_t));
+    result.max_batch_size = max_batch_size;
 
     return result;
 }
@@ -168,48 +104,98 @@ void sprite_batch_flush(sprite_batch_t *self)
 
 size_t sprite_batch_draw(sprite_batch_t *self, sprite_t *sprite)
 {
+    float x_anchor = sprite->anchor[0] * sprite->scale[0];
+    float y_anchor = sprite->anchor[1] * sprite->scale[1];
     sprite_quad_t vertices = {
-        {{
-             sprite->pos[0],
-             sprite->pos[1],
-             sprite->pos[2],
-         },
-         {0.0, 0.0}},
-        {{
-             sprite->pos[0],
-             sprite->pos[1] + sprite->scale[1],
-             sprite->pos[2],
-         },
-         {0.0, 1.0}},
-        {{
-             sprite->pos[0] + sprite->scale[0],
-             sprite->pos[1] + sprite->scale[1],
-             sprite->pos[2],
-         },
-         {1.0, 1.0}},
-        {{
-             sprite->pos[0],
-             sprite->pos[1],
-             sprite->pos[2],
-         },
-         {0.0, 0.0}},
-        {{
-             sprite->pos[0] + sprite->scale[0],
-             sprite->pos[1] + sprite->scale[1],
-             sprite->pos[2],
-         },
-         {1.0, 1.0}},
-        {{
-             sprite->pos[0] + sprite->scale[0],
-             sprite->pos[1],
-             sprite->pos[2],
-         },
-         {1.0, 0.0}},
+        {
+            {
+                sprite->pos[0] - x_anchor,
+                sprite->pos[1] - y_anchor,
+                sprite->pos[2],
+            },
+            {0.0, 0.0},
+            {
+                sprite->color[0],
+                sprite->color[1],
+                sprite->color[2],
+                sprite->color[3],
+            },
+        },
+        {
+            {
+                sprite->pos[0] - x_anchor,
+                sprite->pos[1] + sprite->scale[1] - y_anchor,
+                sprite->pos[2],
+            },
+            {0.0, 1.0},
+            {
+                sprite->color[0],
+                sprite->color[1],
+                sprite->color[2],
+                sprite->color[3],
+            },
+        },
+        {
+            {
+                sprite->pos[0] + sprite->scale[0] - x_anchor,
+                sprite->pos[1] + sprite->scale[1] - y_anchor,
+                sprite->pos[2],
+            },
+            {1.0, 1.0},
+            {
+                sprite->color[0],
+                sprite->color[1],
+                sprite->color[2],
+                sprite->color[3],
+            },
+        },
+        {
+            {
+                sprite->pos[0] - x_anchor,
+                sprite->pos[1] - y_anchor,
+                sprite->pos[2],
+            },
+            {0.0, 0.0},
+            {
+                sprite->color[0],
+                sprite->color[1],
+                sprite->color[2],
+                sprite->color[3],
+            },
+        },
+        {
+            {
+                sprite->pos[0] + sprite->scale[0] - x_anchor,
+                sprite->pos[1] + sprite->scale[1] - y_anchor,
+                sprite->pos[2],
+            },
+            {1.0, 1.0},
+            {
+                sprite->color[0],
+                sprite->color[1],
+                sprite->color[2],
+                sprite->color[3],
+            },
+        },
+        {
+            {
+                sprite->pos[0] + sprite->scale[0] - x_anchor,
+                sprite->pos[1] - y_anchor,
+                sprite->pos[2],
+            },
+            {1.0, 0.0},
+            {
+                sprite->color[0],
+                sprite->color[1],
+                sprite->color[2],
+                sprite->color[3],
+            },
+        },
     };
 
     memcpy_s(&self->quads_vertices[self->num_quads++], sizeof(sprite_quad_t), vertices, sizeof(sprite_quad_t));
 
-    if (self->num_quads == self->max_batch_size)
+    if (self->num_quads >= self->max_batch_size)
     {
         sprite_batch_flush(self);
         return 1;
@@ -220,152 +206,80 @@ size_t sprite_batch_draw(sprite_batch_t *self, sprite_t *sprite)
 
 typedef struct camera_t
 {
+    const entity_id_t entity;
     vec2 pos;
     float aspect;
     float size;
     mat4x4 view_proj;
 } camera_t;
 
-void GL_CALL_IMPL(char *file, size_t line)
+#define FOR_ALL_COMPONENTS(DO)   \
+    DO(sprite_t, sprite_storage) \
+    DO(camera_t, camera_storage)
+
+FOR_ALL_COMPONENTS(VEC_TYPED_DECL);
+FOR_ALL_COMPONENTS(VEC_TYPED_IMPL);
+
+#undef DECL
+#undef IMPL
+
+typedef struct world_t
 {
-#define X_OPENGL_ERRORS                 \
-    X(GL_NO_ERROR)                      \
-    X(GL_INVALID_ENUM)                  \
-    X(GL_INVALID_VALUE)                 \
-    X(GL_INVALID_OPERATION)             \
-    X(GL_INVALID_FRAMEBUFFER_OPERATION) \
-    X(GL_OUT_OF_MEMORY)                 \
-    X(GL_STACK_UNDERFLOW)               \
-    X(GL_STACK_OVERFLOW)
-#define X(error)                              \
-    case error:                               \
-        dump_gl_errors_error_string = #error; \
-        break;
+    entity_id_t next_entity;
+    sprite_batch_t sprite_batch;
+#define DECLARE_STORAGE(type, name) vec_##name name;
+    FOR_ALL_COMPONENTS(DECLARE_STORAGE);
+#undef DECLARE_STORAGE
+} world_t;
 
-    GLenum dump_gl_errors_error;
-    while ((dump_gl_errors_error = glGetError()) != GL_NO_ERROR)
-    {
+world_t ecs_init(void)
+{
+    GLenum shader_types[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
+    GLuint program = create_program("./shader/shader.glsl", shader_types, 2);
 
-        const char *dump_gl_errors_error_string;
-        switch (dump_gl_errors_error)
-        {
+    return (world_t){
+        .next_entity = 0,
+        .sprite_batch = sprite_batch_new(program, 1000),
 
-            X_OPENGL_ERRORS
-        }
-
-        printf("GL ERROR:\n\t%s:%d: 0x%x %s\n", __FILE__, __LINE__, dump_gl_errors_error, dump_gl_errors_error_string);
-    }
-
-#undef X
-#undef X_OPENGL_ERRORS
+#define INIT_STORAGE(type, name, ...) .name = vec_##name##_new().new_result,
+        FOR_ALL_COMPONENTS(INIT_STORAGE)
+#undef INIT_STORAGE
+    };
 }
 
-#define GL_CALL(x) \
-    x;             \
-    GL_CALL_IMPL(__FILE__, __LINE__)
-
-char *readFileToString(const char *path)
+void ecs_free(world_t *world)
 {
-    FILE *file = fopen(path, "r");
+    glDeleteProgram(world->sprite_batch.program);
+    sprite_batch_free(&world->sprite_batch);
 
-    assert(file != 0);
-
-    fseek(file, 0, SEEK_END);
-
-    int64_t numBytes = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    char *text = calloc(numBytes, sizeof(char));
-
-    fread(text, sizeof(char), numBytes, file);
-
-    fclose(file);
-
-    return text;
+#define FREE_STORAGE(type, name) vec_free((vec *)&world->name);
+    FOR_ALL_COMPONENTS(FREE_STORAGE);
+#undef FREE_STORAGE
 }
 
-GLuint create_program(const char *path, GLenum *p_shader_types, size_t num_shader_types)
+entity_id_t spawn_entity(world_t *world)
 {
-    GLuint program = GL_CALL(glCreateProgram());
-
-    GLuint *shaders = (GLuint *)alloca(num_shader_types * sizeof(GLenum));
-
-    char *source = readFileToString(path);
-    for (size_t shader_index = 0; shader_index < num_shader_types; shader_index++)
-    {
-        GLenum type = p_shader_types[shader_index];
-
-        const char *preamble;
-        switch (type)
-        {
-        case GL_VERTEX_SHADER:
-        {
-            preamble = "#define COMPILE_VERTEX_SHADER 1\n";
-            break;
-        }
-        case GL_FRAGMENT_SHADER:
-        {
-            preamble = "#define COMPILE_FRAGMENT_SHADER 1\n";
-            break;
-        }
-        }
-
-        GLuint shader = GL_CALL(glCreateShader(type));
-        shaders[shader_index] = shader;
-        const char *sources[3] = {"#version 460\n", preamble, source};
-        GL_CALL(glShaderSource(shader, 3, sources, 0));
-        GL_CALL(glCompileShader(shader));
-
-        GLint shaderCompiled;
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &shaderCompiled);
-        if (shaderCompiled != GL_TRUE)
-        {
-            GLsizei logLength;
-            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
-            char *log = calloc(logLength, sizeof(char));
-            glGetShaderInfoLog(shader, logLength, 0, log);
-            printf("Failed to compile shader\n\tFile:\t%s\n\tError:\t%s\n", path, log);
-            assert(0);
-        }
-
-        glAttachShader(program, shader);
-    }
-
-    glLinkProgram(program);
-
-    for (size_t i = 0; i < num_shader_types; i++)
-    {
-        GL_CALL(glDetachShader(program, shaders[i]));
-        GL_CALL(glDeleteShader(shaders[i]));
-    }
-
-    free((void *)source);
-    return program;
+    return world->next_entity++;
 }
 
-GLuint createAndCompileShader(const char *path, GLenum type)
+void draw_sprites(world_t *world)
 {
+    GL_CALL(glUseProgram(world->sprite_batch.program));
 
-    GLuint shader = glCreateShader(type);
-    const char *source = readFileToString(path);
-    GL_CALL(glShaderSource(shader, 1, &source, 0));
-    GL_CALL(glCompileShader(shader));
+    glUniformMatrix4fv(glGetUniformLocation(world->sprite_batch.program, "mat_view_proj"), 1, GL_FALSE, world->camera_storage.data[0].view_proj[0]);
 
-    GLint shaderCompiled;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &shaderCompiled);
-    if (shaderCompiled != GL_TRUE)
+    size_t did_batcher_flush = 0;
+    for (size_t i = 0; i < world->sprite_storage.length; i++)
     {
-        GLsizei logLength;
-        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
-        char *log = calloc(logLength, sizeof(char));
-        glGetShaderInfoLog(shader, logLength, 0, log);
-        printf("Failed to compile shader\n\tFile:\t%s\n\tError:\t%s\n", path, log);
-        assert(0);
+        sprite_t *sprite = &world->sprite_storage.data[i];
+
+        did_batcher_flush = sprite_batch_draw(&world->sprite_batch, sprite);
     }
 
-    free((void *)source);
-
-    return shader;
+    if (!did_batcher_flush)
+    {
+        sprite_batch_flush(&world->sprite_batch);
+    }
 }
 
 lib_start_result lib_start()
@@ -394,11 +308,10 @@ lib_start_result lib_start()
         return 0;
     }
 
-    GLenum shader_types[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
-    GLuint program = create_program("./shader/shader.glsl", shader_types, 2);
-    sprite_batch_t sprite_batch = sprite_batch_new(program, 1024);
-
+    world_t world = ecs_init();
+    entity_id_t cam_entity = spawn_entity(&world);
     camera_t camera = {
+        .entity = cam_entity,
         .pos = {0.0, 0.0},
         .aspect = window_width / window_height,
         .size = 10,
@@ -407,18 +320,37 @@ lib_start_result lib_start()
     float w = camera.size / 2, h = (camera.size / 2) / camera.aspect;
     mat4x4_ortho(camera.view_proj, -w, w, -h, h, -0, 100);
 
-    entity_t entity = entity_create();
-    sprite_t *sprite = entity_add_sprite(&entity);
-    assert(sprite);
-    *sprite = (sprite_t){
-        {0.0, 0.0, 0.0},
-        {1.0, 1.0},
-        {1.0, 1.0, 1.0},
-    };
+    vec_camera_storage_push(&world.camera_storage, camera);
+
+    for (size_t i = 0; i < 100000; i++)
+    {
+        entity_id_t e = spawn_entity(&world);
+        sprite_t sprite = {
+            .entity = e,
+            .pos = {((float)rand() / RAND_MAX) * 7 - 3.5, ((float)rand() / RAND_MAX) * 5 - 2.5, 0.0},
+            .scale = {0.01 + ((float)rand() / RAND_MAX) * 0.1, 0.01 + ((float)rand() / RAND_MAX) * 0.1},
+            .anchor = {0.5, 0.5},
+            .color = {((float)rand() / RAND_MAX), ((float)rand() / RAND_MAX), ((float)rand() / RAND_MAX), 1.0},
+        };
+        vec_sprite_storage_push(
+            &world.sprite_storage,
+            sprite);
+    }
 
     uint8_t running = 1;
+    uint64_t last_time;
+    uint64_t this_time = SDL_GetTicks64();
     while (running)
     {
+        last_time = this_time;
+        this_time = SDL_GetTicks64();
+
+        float delta_seconds = (float)(this_time - last_time) / 1000.0;
+
+        char title[256];
+        sprintf(title, "Hello, Sprite Batching | %f FPS", 1.0 / delta_seconds);
+        SDL_SetWindowTitle(window, title);
+
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
@@ -438,21 +370,12 @@ lib_start_result lib_start()
         GL_CALL(glClearColor(0.5, 0.5, 0.5, 1.0));
         GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
 
-        GL_CALL(glUseProgram(program));
-
-        glUniformMatrix4fv(glGetUniformLocation(program, "mat_view_proj"), 1, GL_FALSE, camera.view_proj[0]);
-        size_t did_batcher_flush = sprite_batch_draw(&sprite_batch, entity_get_sprite(&entity));
-
-        if (!did_batcher_flush)
-        {
-            sprite_batch_flush(&sprite_batch);
-        }
+        draw_sprites(&world);
 
         SDL_GL_SwapWindow(window);
     }
 
-    sprite_batch_free(&sprite_batch);
-    GL_CALL(glDeleteProgram(program));
+    ecs_free(&world);
 
     SDL_DestroyWindow(window);
 

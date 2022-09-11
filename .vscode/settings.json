@@ -11,6 +11,8 @@
         "stdint-gcc.h": "c",
         "cstdint": "c",
         "assert.h": "c",
-        "mathc.h": "c"
+        "mathc.h": "c",
+        "fileapi.h": "c",
+        "fs.h": "c"
     }
 }

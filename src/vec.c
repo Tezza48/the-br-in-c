@@ -94,7 +94,7 @@ vec_result vec_pop(vec *vec_ptr, void *popped)
     };
 }
 
-void vec_free(void *vec_ptr)
+void vec_free(vec *vec_ptr)
 {
     free(((vec *)vec_ptr)->data);
     *(vec *)vec_ptr = (vec){0};

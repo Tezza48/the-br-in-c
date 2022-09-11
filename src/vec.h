@@ -34,7 +34,7 @@ vec_result vec_push(vec *vec_ptr, void *element);
 
 vec_result vec_pop(vec *vec_ptr, void *popped);
 
-void vec_delete(vec *vec_ptr);
+void vec_free(vec *vec_ptr);
 
 #define VEC_TYPED_DECL(TYPE, USER_TYPE_NAME)                                                                    \
     typedef struct vec_##USER_TYPE_NAME                                                                         \
