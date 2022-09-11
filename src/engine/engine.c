@@ -24,11 +24,15 @@ void _gl_call_impl(char *file, size_t line)
     while ((dump_gl_errors_error = glGetError()) != GL_NO_ERROR)
     {
 
-        const char *dump_gl_errors_error_string;
+        const char *dump_gl_errors_error_string = {0};
         switch (dump_gl_errors_error)
         {
-
-            X_OPENGL_ERRORS
+            X_OPENGL_ERRORS;
+        default:
+        {
+            dump_gl_errors_error_string = "Not a known error type";
+            break;
+        }
         }
 
         printf("GL ERROR:\n\t%s:%d: 0x%x %s\n", __FILE__, __LINE__, dump_gl_errors_error, dump_gl_errors_error_string);
@@ -85,6 +89,11 @@ GLuint create_program(const char *path, GLenum *p_shader_types, size_t num_shade
         case GL_FRAGMENT_SHADER:
         {
             preamble = "#define COMPILE_FRAGMENT_SHADER 1\n";
+            break;
+        }
+        default:
+        {
+            preamble = "#error UNKNOWN_SHADER_TYPE";
             break;
         }
         }

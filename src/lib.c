@@ -8,6 +8,7 @@
 #include "vendor/linmath.h"
 #include <string.h>
 #include "engine/engine.h"
+#include <math.h>
 
 // typedef struct list_node_t
 // {
@@ -293,6 +294,8 @@ lib_start_result lib_start()
 
     SDL_ShowWindow(window);
 
+    SDL_GL_SetSwapInterval(0);
+
     const uint8_t *scancode_to_state_map = SDL_GetKeyboardState(0);
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -322,15 +325,33 @@ lib_start_result lib_start()
 
     vec_camera_storage_push(&world.camera_storage, camera);
 
-    for (size_t i = 0; i < 100000; i++)
+    const size_t num_sprites = 100000;
+    vec_sprite_storage_expand(&world.sprite_storage, num_sprites);
+
+    const vec2 size = {8.0, 5.0};
+    const vec2 min_max_scale = {0.01, 0.1};
+
+    for (size_t i = 0; i < num_sprites; i++)
     {
         entity_id_t e = spawn_entity(&world);
         sprite_t sprite = {
             .entity = e,
-            .pos = {((float)rand() / RAND_MAX) * 7 - 3.5, ((float)rand() / RAND_MAX) * 5 - 2.5, 0.0},
-            .scale = {0.01 + ((float)rand() / RAND_MAX) * 0.1, 0.01 + ((float)rand() / RAND_MAX) * 0.1},
+            .pos = {
+                ((float)rand() / RAND_MAX) * size[0] - size[0] / 2,
+                ((float)rand() / RAND_MAX) * size[1] - size[1] / 2,
+                0.0,
+            },
+            .scale = {
+                min_max_scale[0] + ((float)rand() / RAND_MAX) * min_max_scale[1],
+                min_max_scale[0] + ((float)rand() / RAND_MAX) * min_max_scale[1],
+            },
             .anchor = {0.5, 0.5},
-            .color = {((float)rand() / RAND_MAX), ((float)rand() / RAND_MAX), ((float)rand() / RAND_MAX), 1.0},
+            .color = {
+                ((float)rand() / RAND_MAX),
+                ((float)rand() / RAND_MAX),
+                ((float)rand() / RAND_MAX),
+                1.0,
+            },
         };
         vec_sprite_storage_push(
             &world.sprite_storage,
@@ -340,15 +361,26 @@ lib_start_result lib_start()
     uint8_t running = 1;
     uint64_t last_time;
     uint64_t this_time = SDL_GetTicks64();
+
+    uint64_t elapsed_times[60];
+    size_t curr_frame_time = 0;
     while (running)
     {
         last_time = this_time;
         this_time = SDL_GetTicks64();
 
-        float delta_seconds = (float)(this_time - last_time) / 1000.0;
+        uint64_t total = 0;
+        size_t num_frames_to_average = curr_frame_time < 60 ? curr_frame_time : 60;
+        elapsed_times[(curr_frame_time++) % 60] = this_time - last_time;
+        for (size_t i = 0; i < num_frames_to_average; i++)
+        {
+            total += elapsed_times[i];
+        }
+
+        float delta_seconds = ((float)total / (float)num_frames_to_average) / 1000.0;
 
         char title[256];
-        sprintf(title, "Hello, Sprite Batching | %f FPS", 1.0 / delta_seconds);
+        sprintf(title, "Hello, Sprite Batching | %.1f FPS", 1.0 / delta_seconds);
         SDL_SetWindowTitle(window, title);
 
         SDL_Event event;
