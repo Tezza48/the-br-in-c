@@ -9,6 +9,8 @@
 #include <string.h>
 #include "engine/engine.h"
 #include <math.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "vendor/stb_image.h"
 
 // typedef struct list_node_t
 // {
@@ -26,7 +28,63 @@
 //     }
 // }
 
+void rect_to_uv_matrix(vec4 rect, mat4x4 matrix)
+{
+    mat4x4_identity(matrix);
+    matrix[0][0] = rect[2];
+    matrix[1][1] = rect[3];
+
+    mat4x4_translate(matrix, rect[0], rect[1], 0);
+}
+
 typedef size_t entity_id_t;
+
+typedef struct texture_t
+{
+    const char *name;
+    GLuint texture;
+    mat4x4 uv_matrix;
+} texture_t;
+
+texture_t texture_new_load_entire(char *path)
+{
+    texture_t result = {0};
+    result.name = path;
+    mat4x4_identity(result.uv_matrix);
+
+    GL_CALL(glCreateTextures(GL_TEXTURE_2D, 1, &result.texture));
+
+    // stbi_set_flip_vertically_on_load(1);
+    int w, h, bpp;
+    uint8_t *bytes = stbi_load(path, &w, &h, &bpp, STBI_rgb_alpha);
+
+    const char *error = stbi_failure_reason();
+    if (error)
+    {
+        printf("STB error:\t%s", error);
+    }
+
+    // GL_CALL(glTextureParameteri(result.texture, GL_TEXTURE_WRAP_R, GL_REPEAT));
+    // GL_CALL(glTextureParameteri(result.texture, GL_TEXTURE_WRAP_S, GL_REPEAT));
+    // GL_CALL(glTextureParameteri(result.texture, GL_TEXTURE_WRAP_T, GL_REPEAT));
+    // GL_CALL(glTextureParameteri(result.texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST));
+    // GL_CALL(glTextureParameteri(result.texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR));
+
+    GL_CALL(glBindTexture(GL_TEXTURE_2D, result.texture));
+    GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, bytes));
+
+    GL_CALL(glGenerateMipmap(GL_TEXTURE_2D));
+
+    GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
+
+    return result;
+}
+
+void texture_free(texture_t *self)
+{
+    glDeleteTextures(1, &self->texture);
+    *self = (texture_t){0};
+}
 
 typedef struct sprite_t
 {
@@ -35,6 +93,7 @@ typedef struct sprite_t
     vec2 scale;
     vec2 anchor;
     vec4 color;
+    texture_t *texture;
 } sprite_t;
 
 typedef struct vertex_t
@@ -54,6 +113,8 @@ typedef struct sprite_batch_t
     size_t num_quads;
     GLuint program;
     size_t max_batch_size;
+    GLuint current_texture_id;
+    GLuint texture_sampler;
 } sprite_batch_t;
 
 sprite_batch_t sprite_batch_new(GLuint program, size_t max_batch_size)
@@ -67,18 +128,25 @@ sprite_batch_t sprite_batch_new(GLuint program, size_t max_batch_size)
     glCreateBuffers(1, &result.vertex_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, result.vertex_buffer);
 
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)offsetof(vertex_t, uv));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_TRUE, sizeof(vertex_t), (const void *)offsetof(vertex_t, color));
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GL_CALL(glEnableVertexAttribArray(0));
+    GL_CALL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)0));
+    GL_CALL(glEnableVertexAttribArray(1));
+    GL_CALL(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)offsetof(vertex_t, uv)));
+    GL_CALL(glEnableVertexAttribArray(2));
+    GL_CALL(glVertexAttribPointer(2, 4, GL_FLOAT, GL_TRUE, sizeof(vertex_t), (const void *)offsetof(vertex_t, color)));
+    GL_CALL(glBindVertexArray(0));
+    GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, 0));
 
     result.num_quads = 0;
     result.quads_vertices = calloc(max_batch_size, sizeof(sprite_quad_t));
     result.max_batch_size = max_batch_size;
+
+    GL_CALL(glCreateSamplers(1, &result.texture_sampler));
+    // GL_CALL(glSamplerParameteri(result.texture_sampler, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+    // GL_CALL(glSamplerParameteri(result.texture_sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+    // GL_CALL(glSamplerParameteri(result.texture_sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+    // GL_CALL(glSamplerParameterf(result.texture_sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR));
+    // GL_CALL(glSamplerParameterf(result.texture_sampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR));
 
     return result;
 }
@@ -94,17 +162,40 @@ void sprite_batch_free(sprite_batch_t *self)
 
 void sprite_batch_flush(sprite_batch_t *self)
 {
+    if (self->num_quads == 0)
+        return;
+
     glNamedBufferData(self->vertex_buffer, self->num_quads * sizeof(sprite_quad_t), self->quads_vertices, GL_STATIC_DRAW);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, self->current_texture_id);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glUseProgram(self->program);
     glBindVertexArray(self->vertex_array);
 
+    glBindSampler(0, self->texture_sampler);
+
     glDrawArrays(GL_TRIANGLES, 0, self->num_quads * 6);
     self->num_quads = 0;
+
+    glUseProgram(0);
+    glBindVertexArray(0);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 size_t sprite_batch_draw(sprite_batch_t *self, sprite_t *sprite)
 {
+    if (self->current_texture_id != sprite->texture->texture)
+    {
+        sprite_batch_flush(self);
+    }
+
+    self->current_texture_id = sprite->texture->texture;
+
     float x_anchor = sprite->anchor[0] * sprite->scale[0];
     float y_anchor = sprite->anchor[1] * sprite->scale[1];
     sprite_quad_t vertices = {
@@ -285,7 +376,7 @@ void draw_sprites(world_t *world)
 
 lib_start_result lib_start()
 {
-    float window_width = 640, window_height = 360;
+    float window_width = 1600, window_height = 900;
     SDL_Window *window = SDL_CreateWindow("Hello, SDL!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_OPENGL);
     if (!window)
     {
@@ -329,7 +420,9 @@ lib_start_result lib_start()
     vec_sprite_storage_expand(&world.sprite_storage, num_sprites);
 
     const vec2 size = {8.0, 5.0};
-    const vec2 min_max_scale = {0.01, 0.1};
+    const vec2 min_max_scale = {0.01, 0.3};
+
+    texture_t tex = texture_new_load_entire("./images/fruit_banana.png");
 
     for (size_t i = 0; i < num_sprites; i++)
     {
@@ -352,6 +445,7 @@ lib_start_result lib_start()
                 ((float)rand() / RAND_MAX),
                 1.0,
             },
+            .texture = &tex,
         };
         vec_sprite_storage_push(
             &world.sprite_storage,
@@ -370,8 +464,8 @@ lib_start_result lib_start()
         this_time = SDL_GetTicks64();
 
         uint64_t total = 0;
-        size_t num_frames_to_average = curr_frame_time < 60 ? curr_frame_time : 60;
         elapsed_times[(curr_frame_time++) % 60] = this_time - last_time;
+        size_t num_frames_to_average = curr_frame_time < 60 ? curr_frame_time : 60;
         for (size_t i = 0; i < num_frames_to_average; i++)
         {
             total += elapsed_times[i];
@@ -406,6 +500,8 @@ lib_start_result lib_start()
 
         SDL_GL_SwapWindow(window);
     }
+
+    texture_free(&tex);
 
     ecs_free(&world);
 

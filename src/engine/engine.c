@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-void _gl_call_impl(char *file, size_t line)
+void _gl_call_impl(char *file, int line)
 {
 #define X_OPENGL_ERRORS                 \
     X(GL_NO_ERROR)                      \
@@ -35,7 +35,7 @@ void _gl_call_impl(char *file, size_t line)
         }
         }
 
-        printf("GL ERROR:\n\t%s:%d: 0x%x %s\n", __FILE__, __LINE__, dump_gl_errors_error, dump_gl_errors_error_string);
+        printf("GL ERROR:\n\t%s:%d: 0x%x %s\n", file, line, dump_gl_errors_error, dump_gl_errors_error_string);
     }
 
 #undef X

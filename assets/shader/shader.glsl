@@ -17,12 +17,15 @@ void main() {
 }
 
 #elif COMPILE_FRAGMENT_SHADER == 1
+
+layout(binding = 0) uniform sampler2D uColorTexture;
+
 in vec2 vert_to_frag_uv;
 in vec4 vert_to_frag_color;
 
 out vec4 frag_color;
 
 void main() {
-    frag_color = vert_to_frag_color;
+    frag_color = texture(uColorTexture, vert_to_frag_uv);
 }
 #endif
