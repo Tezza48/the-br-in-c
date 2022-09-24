@@ -13,6 +13,8 @@
         "assert.h": "c",
         "mathc.h": "c",
         "fileapi.h": "c",
-        "fs.h": "c"
+        "fs.h": "c",
+        "entities.h": "c",
+        "stb_ds.h": "c"
     }
 }

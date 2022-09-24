@@ -9,8 +9,10 @@
 #include <string.h>
 #include "engine/engine.h"
 #include <math.h>
-#define STB_IMAGE_IMPLEMENTATION
 #include "vendor/stb_image.h"
+#include "vendor/stb_ds.h"
+
+#include "entities.h"
 
 // typedef struct list_node_t
 // {
@@ -36,8 +38,6 @@ void rect_to_uv_matrix(vec4 rect, mat4x4 matrix)
 
     mat4x4_translate(matrix, rect[0], rect[1], 0);
 }
-
-typedef size_t entity_id_t;
 
 typedef struct texture_t
 {
@@ -88,7 +88,6 @@ void texture_free(texture_t *self)
 
 typedef struct sprite_t
 {
-    const entity_id_t entity;
     vec3 pos;
     vec2 scale;
     vec2 anchor;
@@ -298,79 +297,44 @@ size_t sprite_batch_draw(sprite_batch_t *self, sprite_t *sprite)
 
 typedef struct camera_t
 {
-    const entity_id_t entity;
     vec2 pos;
     float aspect;
     float size;
     mat4x4 view_proj;
 } camera_t;
 
-#define FOR_ALL_COMPONENTS(DO)   \
-    DO(sprite_t, sprite_storage) \
-    DO(camera_t, camera_storage)
-
-FOR_ALL_COMPONENTS(VEC_TYPED_DECL);
-FOR_ALL_COMPONENTS(VEC_TYPED_IMPL);
-
-#undef DECL
-#undef IMPL
-
-typedef struct world_t
-{
-    entity_id_t next_entity;
-    sprite_batch_t sprite_batch;
-#define DECLARE_STORAGE(type, name) vec_##name name;
-    FOR_ALL_COMPONENTS(DECLARE_STORAGE);
-#undef DECLARE_STORAGE
-} world_t;
-
-world_t ecs_init(void)
-{
-    GLenum shader_types[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
-    GLuint program = create_program("./shader/shader.glsl", shader_types, 2);
-
-    return (world_t){
-        .next_entity = 0,
-        .sprite_batch = sprite_batch_new(program, 1000),
-
-#define INIT_STORAGE(type, name, ...) .name = vec_##name##_new().new_result,
-        FOR_ALL_COMPONENTS(INIT_STORAGE)
-#undef INIT_STORAGE
-    };
-}
-
-void ecs_free(world_t *world)
-{
-    glDeleteProgram(world->sprite_batch.program);
-    sprite_batch_free(&world->sprite_batch);
-
-#define FREE_STORAGE(type, name) vec_free((vec *)&world->name);
-    FOR_ALL_COMPONENTS(FREE_STORAGE);
-#undef FREE_STORAGE
-}
-
-entity_id_t spawn_entity(world_t *world)
-{
-    return world->next_entity++;
-}
-
 void draw_sprites(world_t *world)
 {
-    GL_CALL(glUseProgram(world->sprite_batch.program));
+    sprite_batch_t *sprite_batch = world_get_resource(world, sprite_batch_t);
+    GL_CALL(glUseProgram(sprite_batch->program));
 
-    glUniformMatrix4fv(glGetUniformLocation(world->sprite_batch.program, "mat_view_proj"), 1, GL_FALSE, world->camera_storage.data[0].view_proj[0]);
+    camera_t *camera;
+    entity_t *arr_entities = world_get_entities(world);
+    for (size_t i = 0; i < arrlen(arr_entities); i++)
+    {
+        camera = entity_get_component(&arr_entities[i], camera_t);
+        if (camera)
+            break;
+    }
+
+    assert(camera);
+
+    glUniformMatrix4fv(glGetUniformLocation(sprite_batch->program, "mat_view_proj"), 1, GL_FALSE, camera->view_proj[0]);
 
     size_t did_batcher_flush = 0;
-    for (size_t i = 0; i < world->sprite_storage.length; i++)
+    for (size_t i = 0; i < arrlen(world->arr_entities); i++)
     {
-        sprite_t *sprite = &world->sprite_storage.data[i];
+        entity_t *entity = &arr_entities[i];
+        sprite_t *sprite = entity_get_component(entity, sprite_t);
+        if (!sprite)
+            continue;
 
-        did_batcher_flush = sprite_batch_draw(&world->sprite_batch, sprite);
+        did_batcher_flush = sprite_batch_draw(sprite_batch, sprite);
     }
 
     if (!did_batcher_flush)
     {
-        sprite_batch_flush(&world->sprite_batch);
+        sprite_batch_flush(sprite_batch);
     }
 }
 
@@ -402,22 +366,28 @@ lib_start_result lib_start()
         return 0;
     }
 
-    world_t world = ecs_init();
-    entity_id_t cam_entity = spawn_entity(&world);
-    camera_t camera = {
-        .entity = cam_entity,
-        .pos = {0.0, 0.0},
-        .aspect = window_width / window_height,
-        .size = 10,
-    };
+    GLenum shader_types[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
+    GLuint program = create_program("./shader/shader.glsl", shader_types, 2);
 
-    float w = camera.size / 2, h = (camera.size / 2) / camera.aspect;
-    mat4x4_ortho(camera.view_proj, -w, w, -h, h, -0, 100);
+    world_t *world = world_new();
+    world_register_free_impl(world, "sprite_batch_t", (custom_free_fn)&sprite_batch_free);
 
-    vec_camera_storage_push(&world.camera_storage, camera);
+    sprite_batch_t *p_sprite_batch = world_create_resource(world, sprite_batch_t);
+    // TODO WT: Refactor sprite batch instantiation to "set up" an existing ptr.
+    sprite_batch_t sprite_batch = sprite_batch_new(program, 1000);
+    memcpy_s(p_sprite_batch, sizeof(sprite_batch_t), &sprite_batch, sizeof(sprite_batch_t));
+
+    entity_t *cam_entity = entity_new(world);
+    camera_t *camera = entity_create_component(cam_entity, camera_t);
+    camera->pos[0] = 0;
+    camera->pos[1] = 1;
+    camera->aspect = window_width / window_height;
+    camera->size = 10;
+
+    float w = camera->size / 2, h = (camera->size / 2) / camera->aspect;
+    mat4x4_ortho(camera->view_proj, -w, w, -h, h, -0, 100);
 
     const size_t num_sprites = 100000;
-    vec_sprite_storage_expand(&world.sprite_storage, num_sprites);
 
     const vec2 size = {8.0, 5.0};
     const vec2 min_max_scale = {0.01, 0.3};
@@ -426,9 +396,9 @@ lib_start_result lib_start()
 
     for (size_t i = 0; i < num_sprites; i++)
     {
-        entity_id_t e = spawn_entity(&world);
+        entity_t *e = entity_new(world);
+        sprite_t *p_sprite = entity_create_component(e, sprite_t);
         sprite_t sprite = {
-            .entity = e,
             .pos = {
                 ((float)rand() / RAND_MAX) * size[0] - size[0] / 2,
                 ((float)rand() / RAND_MAX) * size[1] - size[1] / 2,
@@ -447,9 +417,7 @@ lib_start_result lib_start()
             },
             .texture = &tex,
         };
-        vec_sprite_storage_push(
-            &world.sprite_storage,
-            sprite);
+        memcpy_s(p_sprite, sizeof(sprite_t), &sprite, sizeof(sprite_t));
     }
 
     uint8_t running = 1;
@@ -496,14 +464,20 @@ lib_start_result lib_start()
         GL_CALL(glClearColor(0.5, 0.5, 0.5, 1.0));
         GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
 
-        draw_sprites(&world);
+        draw_sprites(world);
 
         SDL_GL_SwapWindow(window);
     }
 
     texture_free(&tex);
+    glDeleteProgram(program);
 
-    ecs_free(&world);
+    // TODO WT: world_free is horribly inefficent and should be optimized. It happens at shutdown though so not massive.
+    last_time = SDL_GetTicks64();
+    world_free(world);
+    this_time = SDL_GetTicks64();
+
+    printf("world_free took %lldms", this_time - last_time);
 
     SDL_DestroyWindow(window);
 
