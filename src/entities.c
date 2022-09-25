@@ -30,16 +30,16 @@ entity_t *world_get_entities(world_t *world)
     return world->arr_entities;
 }
 
-void *world_create_resource_impl(world_t *world, char *typename, size_t typesize)
+void *world_create_resource_impl(world_t *world, const char *typename, size_t typesize)
 {
     return entity_create_component_impl(&world->resources, typename, typesize);
 }
 
-void *world_get_resource_impl(world_t *world, char *typename, size_t typesize)
+void *world_get_resource_impl(world_t *world, const char *typename, size_t typesize)
 {
     return entity_get_component_impl(&world->resources, typename, typesize);
 }
-void world_register_free_impl(world_t *world, char *typename, custom_free_fn free_fn)
+void world_register_free_impl(world_t *world, const char *typename, custom_free_fn free_fn)
 {
     shput(world->sh_free_fns, typename, free_fn);
 }
@@ -75,7 +75,7 @@ void entity_delete(world_t *world, entity_t *entity)
     arrdelswap(world->arr_entities, index);
 }
 
-void *entity_create_component_impl(entity_t *entity, char *typename, size_t typesize)
+void *entity_create_component_impl(entity_t *entity, const char *typename, size_t typesize)
 {
     void *val = calloc(1, typesize);
     assert(val);
@@ -84,7 +84,7 @@ void *entity_create_component_impl(entity_t *entity, char *typename, size_t type
 
     return val;
 }
-void *entity_get_component_impl(entity_t *entity, char *typename, size_t typesize)
+void *entity_get_component_impl(entity_t *entity, const char *typename, size_t typesize)
 {
     // TODO WT: Grabbing the index anyway to see if it's got that component. should store that and use it instead of calling shget on the next line.
     if (shgeti(entity->sh_components, typename) != -1)

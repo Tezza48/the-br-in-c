@@ -11,7 +11,7 @@ out vec2 vert_to_frag_uv;
 out vec4 vert_to_frag_color;
 
 void main() {
-    gl_Position = vec4(vert_position, 1.0) * mat_view_proj;
+    gl_Position = mat_view_proj * vec4(vert_position, 1.0);
     vert_to_frag_uv = vert_uv;
     vert_to_frag_color = vert_color;
 }

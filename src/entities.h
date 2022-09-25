@@ -30,12 +30,12 @@ typedef struct world_t
     free_fn_map_t *sh_free_fns;
 } world_t;
 
-void *world_create_resource_impl(world_t *, char *typename, size_t typesize);
-void *world_get_resource_impl(world_t *, char *, size_t);
-void world_register_free_impl(world_t *world, char *, custom_free_fn);
+void *world_create_resource_impl(world_t *, const char *typename, size_t typesize);
+void *world_get_resource_impl(world_t *, const char *, size_t);
+void world_register_free_impl(world_t *world, const char *, custom_free_fn);
 
-void *entity_create_component_impl(entity_t *, char *typename, size_t typesize);
-void *entity_get_component_impl(entity_t *, char *, size_t);
+void *entity_create_component_impl(entity_t *, const char *typename, size_t typesize);
+void *entity_get_component_impl(entity_t *, const char *, size_t);
 
 world_t *world_new();
 void world_free(world_t *);
