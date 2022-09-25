@@ -4,31 +4,19 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
-#include "vec.h"
-#include "vendor/linmath.h"
 #include <string.h>
-#include "engine/engine.h"
 #include <math.h>
+
+// ! Ideally engine wouldn't be included in the user code unless they're implementing extensions/plugins.
+#include "engine/engine.h"
+
+#include "vendor/linmath.h"
 #include "vendor/stb_image.h"
 #include "vendor/stb_ds.h"
 
 #include "entities.h"
-
-// typedef struct list_node_t
-// {
-//     list_node_t *next;
-//     void *data;
-// } list_node_t;
-
-// size_t list_length(list_node_t *head)
-// {
-//     size_t length = 1;
-//     while (head->next)
-//     {
-//         length++;
-//         head = head->next;
-//     }
-// }
+#include "sprite.h"
+#include "camera.h"
 
 void rect_to_uv_matrix(vec4 rect, mat4x4 matrix)
 {
@@ -37,305 +25,6 @@ void rect_to_uv_matrix(vec4 rect, mat4x4 matrix)
     matrix[1][1] = rect[3];
 
     mat4x4_translate(matrix, rect[0], rect[1], 0);
-}
-
-typedef struct texture_t
-{
-    const char *name;
-    GLuint texture;
-    mat4x4 uv_matrix;
-} texture_t;
-
-texture_t texture_new_load_entire(char *path)
-{
-    texture_t result = {0};
-    result.name = path;
-    mat4x4_identity(result.uv_matrix);
-
-    GL_CALL(glCreateTextures(GL_TEXTURE_2D, 1, &result.texture));
-
-    // stbi_set_flip_vertically_on_load(1);
-    int w, h, bpp;
-    uint8_t *bytes = stbi_load(path, &w, &h, &bpp, STBI_rgb_alpha);
-
-    const char *error = stbi_failure_reason();
-    if (error)
-    {
-        printf("STB error:\t%s", error);
-    }
-
-    // GL_CALL(glTextureParameteri(result.texture, GL_TEXTURE_WRAP_R, GL_REPEAT));
-    // GL_CALL(glTextureParameteri(result.texture, GL_TEXTURE_WRAP_S, GL_REPEAT));
-    // GL_CALL(glTextureParameteri(result.texture, GL_TEXTURE_WRAP_T, GL_REPEAT));
-    // GL_CALL(glTextureParameteri(result.texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST));
-    // GL_CALL(glTextureParameteri(result.texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR));
-
-    GL_CALL(glBindTexture(GL_TEXTURE_2D, result.texture));
-    GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, bytes));
-
-    GL_CALL(glGenerateMipmap(GL_TEXTURE_2D));
-
-    GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
-
-    return result;
-}
-
-void texture_free(texture_t *self)
-{
-    glDeleteTextures(1, &self->texture);
-    *self = (texture_t){0};
-}
-
-typedef struct sprite_t
-{
-    vec3 pos;
-    vec2 scale;
-    vec2 anchor;
-    vec4 color;
-    texture_t *texture;
-} sprite_t;
-
-typedef struct vertex_t
-{
-    vec3 pos;
-    vec2 uv;
-    vec4 color;
-} vertex_t;
-
-typedef vertex_t sprite_quad_t[6];
-
-typedef struct sprite_batch_t
-{
-    GLuint vertex_array;
-    GLuint vertex_buffer;
-    sprite_quad_t *quads_vertices;
-    size_t num_quads;
-    GLuint program;
-    size_t max_batch_size;
-    GLuint current_texture_id;
-    GLuint texture_sampler;
-} sprite_batch_t;
-
-sprite_batch_t sprite_batch_new(GLuint program, size_t max_batch_size)
-{
-    sprite_batch_t result = {0};
-    result.program = program;
-
-    glCreateVertexArrays(1, &result.vertex_array);
-    glBindVertexArray(result.vertex_array);
-
-    glCreateBuffers(1, &result.vertex_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, result.vertex_buffer);
-
-    GL_CALL(glEnableVertexAttribArray(0));
-    GL_CALL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)0));
-    GL_CALL(glEnableVertexAttribArray(1));
-    GL_CALL(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_t), (const void *)offsetof(vertex_t, uv)));
-    GL_CALL(glEnableVertexAttribArray(2));
-    GL_CALL(glVertexAttribPointer(2, 4, GL_FLOAT, GL_TRUE, sizeof(vertex_t), (const void *)offsetof(vertex_t, color)));
-    GL_CALL(glBindVertexArray(0));
-    GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, 0));
-
-    result.num_quads = 0;
-    result.quads_vertices = calloc(max_batch_size, sizeof(sprite_quad_t));
-    result.max_batch_size = max_batch_size;
-
-    GL_CALL(glCreateSamplers(1, &result.texture_sampler));
-    // GL_CALL(glSamplerParameteri(result.texture_sampler, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
-    // GL_CALL(glSamplerParameteri(result.texture_sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-    // GL_CALL(glSamplerParameteri(result.texture_sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-    // GL_CALL(glSamplerParameterf(result.texture_sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR));
-    // GL_CALL(glSamplerParameterf(result.texture_sampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR));
-
-    return result;
-}
-
-void sprite_batch_free(sprite_batch_t *self)
-{
-    free(self->quads_vertices);
-    glDeleteBuffers(1, &self->vertex_buffer);
-    glDeleteVertexArrays(1, &self->vertex_array);
-
-    *self = (sprite_batch_t){0};
-}
-
-void sprite_batch_flush(sprite_batch_t *self)
-{
-    if (self->num_quads == 0)
-        return;
-
-    glNamedBufferData(self->vertex_buffer, self->num_quads * sizeof(sprite_quad_t), self->quads_vertices, GL_STATIC_DRAW);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, self->current_texture_id);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    glUseProgram(self->program);
-    glBindVertexArray(self->vertex_array);
-
-    glBindSampler(0, self->texture_sampler);
-
-    glDrawArrays(GL_TRIANGLES, 0, self->num_quads * 6);
-    self->num_quads = 0;
-
-    glUseProgram(0);
-    glBindVertexArray(0);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-}
-
-size_t sprite_batch_draw(sprite_batch_t *self, sprite_t *sprite)
-{
-    if (self->current_texture_id != sprite->texture->texture)
-    {
-        sprite_batch_flush(self);
-    }
-
-    self->current_texture_id = sprite->texture->texture;
-
-    float x_anchor = sprite->anchor[0] * sprite->scale[0];
-    float y_anchor = sprite->anchor[1] * sprite->scale[1];
-    sprite_quad_t vertices = {
-        {
-            {
-                sprite->pos[0] - x_anchor,
-                sprite->pos[1] - y_anchor,
-                sprite->pos[2],
-            },
-            {0.0, 0.0},
-            {
-                sprite->color[0],
-                sprite->color[1],
-                sprite->color[2],
-                sprite->color[3],
-            },
-        },
-        {
-            {
-                sprite->pos[0] - x_anchor,
-                sprite->pos[1] + sprite->scale[1] - y_anchor,
-                sprite->pos[2],
-            },
-            {0.0, 1.0},
-            {
-                sprite->color[0],
-                sprite->color[1],
-                sprite->color[2],
-                sprite->color[3],
-            },
-        },
-        {
-            {
-                sprite->pos[0] + sprite->scale[0] - x_anchor,
-                sprite->pos[1] + sprite->scale[1] - y_anchor,
-                sprite->pos[2],
-            },
-            {1.0, 1.0},
-            {
-                sprite->color[0],
-                sprite->color[1],
-                sprite->color[2],
-                sprite->color[3],
-            },
-        },
-        {
-            {
-                sprite->pos[0] - x_anchor,
-                sprite->pos[1] - y_anchor,
-                sprite->pos[2],
-            },
-            {0.0, 0.0},
-            {
-                sprite->color[0],
-                sprite->color[1],
-                sprite->color[2],
-                sprite->color[3],
-            },
-        },
-        {
-            {
-                sprite->pos[0] + sprite->scale[0] - x_anchor,
-                sprite->pos[1] + sprite->scale[1] - y_anchor,
-                sprite->pos[2],
-            },
-            {1.0, 1.0},
-            {
-                sprite->color[0],
-                sprite->color[1],
-                sprite->color[2],
-                sprite->color[3],
-            },
-        },
-        {
-            {
-                sprite->pos[0] + sprite->scale[0] - x_anchor,
-                sprite->pos[1] - y_anchor,
-                sprite->pos[2],
-            },
-            {1.0, 0.0},
-            {
-                sprite->color[0],
-                sprite->color[1],
-                sprite->color[2],
-                sprite->color[3],
-            },
-        },
-    };
-
-    memcpy_s(&self->quads_vertices[self->num_quads++], sizeof(sprite_quad_t), vertices, sizeof(sprite_quad_t));
-
-    if (self->num_quads >= self->max_batch_size)
-    {
-        sprite_batch_flush(self);
-        return 1;
-    }
-
-    return 0;
-}
-
-typedef struct camera_t
-{
-    vec2 pos;
-    float aspect;
-    float size;
-    mat4x4 view_proj;
-} camera_t;
-
-void draw_sprites(world_t *world)
-{
-    sprite_batch_t *sprite_batch = world_get_resource(world, sprite_batch_t);
-    GL_CALL(glUseProgram(sprite_batch->program));
-
-    camera_t *camera;
-    entity_t *arr_entities = world_get_entities(world);
-    for (size_t i = 0; i < arrlen(arr_entities); i++)
-    {
-        camera = entity_get_component(&arr_entities[i], camera_t);
-        if (camera)
-            break;
-    }
-
-    assert(camera);
-
-    glUniformMatrix4fv(glGetUniformLocation(sprite_batch->program, "mat_view_proj"), 1, GL_FALSE, camera->view_proj[0]);
-
-    size_t did_batcher_flush = 0;
-    for (size_t i = 0; i < arrlen(world->arr_entities); i++)
-    {
-        entity_t *entity = &arr_entities[i];
-        sprite_t *sprite = entity_get_component(entity, sprite_t);
-        if (!sprite)
-            continue;
-
-        did_batcher_flush = sprite_batch_draw(sprite_batch, sprite);
-    }
-
-    if (!did_batcher_flush)
-    {
-        sprite_batch_flush(sprite_batch);
-    }
 }
 
 lib_start_result lib_start()
@@ -366,10 +55,12 @@ lib_start_result lib_start()
         return 0;
     }
 
+    // ? Should sprite_batch_t own this entirely?
     GLenum shader_types[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
     GLuint program = create_program("./shader/shader.glsl", shader_types, 2);
 
     world_t *world = world_new();
+
     world_register_free_impl(world, "sprite_batch_t", (custom_free_fn)&sprite_batch_free);
 
     sprite_batch_t *p_sprite_batch = world_create_resource(world, sprite_batch_t);
@@ -387,10 +78,10 @@ lib_start_result lib_start()
     float w = camera->size / 2, h = (camera->size / 2) / camera->aspect;
     mat4x4_ortho(camera->view_proj, -w, w, -h, h, -0, 100);
 
-    const size_t num_sprites = 100000;
+    const size_t num_sprites = 1000;
 
     const vec2 size = {8.0, 5.0};
-    const vec2 min_max_scale = {0.01, 0.3};
+    const vec2 min_max_scale = {0.1, 0.5};
 
     texture_t tex = texture_new_load_entire("./images/fruit_banana.png");
 

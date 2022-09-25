@@ -15,6 +15,8 @@
         "fileapi.h": "c",
         "fs.h": "c",
         "entities.h": "c",
-        "stb_ds.h": "c"
+        "stb_ds.h": "c",
+        "engine.h": "c",
+        "unistd.h": "c"
     }
 }
