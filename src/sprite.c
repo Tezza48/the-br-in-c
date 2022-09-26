@@ -20,18 +20,22 @@ sprite_batch_t sprite_batch_new(GLuint program, size_t max_batch_size)
     GL_CALL(glEnableVertexAttribArray(2));
     GL_CALL(glVertexAttribPointer(2, 4, GL_FLOAT, GL_TRUE, sizeof(vertex_t), (const void *)offsetof(vertex_t, color)));
     GL_CALL(glBindVertexArray(0));
-    GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, 0));
 
     result.num_quads = 0;
     result.quads_vertices = calloc(max_batch_size, sizeof(sprite_quad_t));
     result.max_batch_size = max_batch_size;
 
+    glBufferData(GL_ARRAY_BUFFER, max_batch_size * sizeof(sprite_quad_t), result.quads_vertices, GL_DYNAMIC_DRAW);
+
+    GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, 0));
     GL_CALL(glCreateSamplers(1, &result.texture_sampler));
     // GL_CALL(glSamplerParameteri(result.texture_sampler, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
     // GL_CALL(glSamplerParameteri(result.texture_sampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
     // GL_CALL(glSamplerParameteri(result.texture_sampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-    GL_CALL(glSamplerParameterf(result.texture_sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR));
-    GL_CALL(glSamplerParameterf(result.texture_sampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+    // GL_CALL(glSamplerParameterf(result.texture_sampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR));
+    // GL_CALL(glSamplerParameterf(result.texture_sampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+
+    glObjectLabel(GL_BUFFER, result.vertex_buffer, -1, "VertexBuffer(sprite_batch_t)");
 
     return result;
 }
@@ -50,24 +54,25 @@ void sprite_batch_flush(sprite_batch_t *self)
     if (self->num_quads == 0)
         return;
 
-    glNamedBufferData(self->vertex_buffer, self->num_quads * sizeof(sprite_quad_t), self->quads_vertices, GL_STATIC_DRAW);
+    GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, self->vertex_buffer));
+    glBufferSubData(GL_ARRAY_BUFFER, 0, self->num_quads * sizeof(sprite_quad_t), self->quads_vertices);
+    // GL_CALL(glBufferData(GL_ARRAY_BUFFER, self->num_quads * sizeof(sprite_quad_t), self->quads_vertices, GL_DYNAMIC_DRAW));
+    // glNamedBufferData(self->vertex_buffer, self->num_quads * sizeof(sprite_quad_t), self->quads_vertices, GL_STATIC_DRAW);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, self->current_texture_id);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    glUseProgram(self->program);
-    glBindVertexArray(self->vertex_array);
-
-    glBindSampler(0, self->texture_sampler);
-
-    glDrawArrays(GL_TRIANGLES, 0, self->num_quads * 6);
+    GL_CALL(glActiveTexture(GL_TEXTURE0));
+    GL_CALL(glBindTexture(GL_TEXTURE_2D, self->current_texture_id));
+    GL_CALL(glEnable(GL_BLEND));
+    GL_CALL(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    GL_CALL(glUseProgram(self->program));
+    GL_CALL(glBindVertexArray(self->vertex_array));
+    GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, self->vertex_buffer));
+    GL_CALL(glBindSampler(0, self->texture_sampler));
+    GL_CALL(glDrawArrays(GL_TRIANGLES, 0, self->num_quads * 6));
     self->num_quads = 0;
 
     glUseProgram(0);
     glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glBindTexture(GL_TEXTURE_2D, 0);
 }
@@ -201,6 +206,9 @@ void draw_sprites(world_t *world)
 
     glUniformMatrix4fv(glGetUniformLocation(sprite_batch->program, "mat_view_proj"), 1, GL_FALSE, camera->view_proj[0]);
 
+    glDisable(GL_DEPTH_TEST);
+
+    // TODO WT: either sort by depth OR use parent hierarchy to draw back to front.
     size_t did_batcher_flush = 0;
     for (size_t i = 0; i < arrlen(world->arr_entities); i++)
     {

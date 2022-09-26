@@ -18,6 +18,8 @@
 #include "sprite.h"
 #include "camera.h"
 
+#include "vendor/stb_truetype.h"
+
 void rect_to_uv_matrix(vec4 rect, mat4x4 matrix)
 {
     mat4x4_identity(matrix);
@@ -45,10 +47,12 @@ void gl_program_free(gl_program_t *program)
 
 void startup(world_t *world)
 {
+    // Tell the ecs to use a particular proc to free certain types.
     world_register_free(world, sprite_batch_t, (custom_free_fn)&sprite_batch_free);
     world_register_free(world, texture_t, (custom_free_fn)&texture_free);
     world_register_free(world, gl_program_t, (custom_free_fn)&gl_program_free);
 
+    // Set up an entity for a fre random things we need in the scene.
     entity_t *random_stuff_entity = entity_new(world);
     {
         // TODO WT: Not a great idea storing an individual program on some random entity, create a program cache resource.
@@ -67,8 +71,9 @@ void startup(world_t *world)
     {
         entity_t *cam_entity = entity_new(world);
         camera_t *camera = entity_create_component(cam_entity, camera_t);
-        camera->pos[0] = 0;
-        camera->pos[1] = 1;
+
+        vec2 pos = {0.0f, 0.0f};
+        memcpy_s(camera->pos, sizeof(vec2), pos, sizeof(vec2));
 
         app_context_t *app_context = world_get_resource(world, app_context_t);
         camera->aspect = (float)app_context->window_width / (float)app_context->window_height;
@@ -76,7 +81,7 @@ void startup(world_t *world)
         camera->size = 10;
 
         float w = camera->size / 2, h = (camera->size / 2) / camera->aspect;
-        mat4x4_ortho(camera->view_proj, -w, w, -h, h, -0, 100);
+        mat4x4_ortho(camera->view_proj, -w, w, -h, h, 0, 100);
     }
 
     {
@@ -98,7 +103,7 @@ void startup(world_t *world)
                 .pos = {
                     ((float)rand() / RAND_MAX) * size[0] - size[0] / 2,
                     ((float)rand() / RAND_MAX) * size[1] - size[1] / 2,
-                    0.0,
+                    -1.0,
                 },
                 .scale = {scale, scale},
                 .anchor = {0.5, 0.5},
@@ -113,6 +118,78 @@ void startup(world_t *world)
             memcpy_s(p_sprite, sizeof(sprite_t), &sprite, sizeof(sprite_t));
         }
     }
+    {
+        uint8_t *bytes;
+        FILE *file = fopen("./font/CONSTAN.TTF", "r");
+
+        fseek(file, 0, SEEK_END);
+        int64_t num_bytes = ftell(file);
+
+        rewind(file);
+
+        bytes = calloc(num_bytes, sizeof(uint8_t));
+
+        fread(bytes, sizeof(uint8_t), num_bytes, file);
+
+        fclose(file);
+
+        uint32_t tex_width = 256;
+        uint8_t bitmap[tex_width * tex_width];
+        stbtt_bakedchar cdata[96];
+
+        stbtt_BakeFontBitmap(bytes, 0, 32.0, bitmap, tex_width, tex_width, 32, 96, cdata);
+
+        uint8_t y_flip[tex_width * tex_width];
+        for (size_t y = 0; y < tex_width; y++)
+        {
+            for (size_t x = 0; x < tex_width; x++)
+            {
+                y_flip[(tex_width - y) * tex_width + x] = bitmap[y * tex_width + x];
+            }
+        }
+
+        uint8_t *rgba_bitmap = calloc(tex_width * tex_width * 4, sizeof(uint8_t));
+
+        for (size_t i = 0; i < tex_width * tex_width; i++)
+        {
+            size_t start_index = i * 4;
+            rgba_bitmap[start_index + 0] = y_flip[i];
+            rgba_bitmap[start_index + 1] = y_flip[i];
+            rgba_bitmap[start_index + 2] = y_flip[i];
+            rgba_bitmap[start_index + 3] = y_flip[i];
+        }
+
+        entity_t *font_data_entity = entity_new(world);
+        texture_t *tex = entity_create_component(font_data_entity, texture_t);
+        tex->name = "CONSTAN.TTF Bitmap 32";
+        GL_CALL(glGenTextures(1, &tex->texture));
+        GL_CALL(glBindTexture(GL_TEXTURE_2D, tex->texture));
+        GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, tex_width, tex_width, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba_bitmap));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+        GL_CALL(glGenerateMipmap(GL_TEXTURE_2D));
+        glObjectLabel(GL_TEXTURE, tex->texture, strlen(tex->name), tex->name);
+        GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
+
+        free(rgba_bitmap);
+
+        mat4x4_identity(tex->uv_matrix);
+
+        sprite_t *font_sprite = entity_create_component(font_data_entity, sprite_t);
+        vec3 pos = {0.0f, 0.0f, 0.0f};
+        memcpy_s(font_sprite->pos, sizeof(vec3), pos, sizeof(vec3));
+
+        vec2 scale = {4.0f, 4.0f};
+        memcpy_s(font_sprite->scale, sizeof(vec2), scale, sizeof(vec2));
+
+        vec2 anchor = {0.5f, 0.5f};
+        memcpy_s(font_sprite->anchor, sizeof(vec2), anchor, sizeof(vec2));
+
+        vec4 color = {1.0, 1.0, 1.0, 1.0};
+        memcpy_s(font_sprite->color, sizeof(vec4), color, sizeof(vec4));
+
+        font_sprite->texture = tex;
+    }
 }
 
 void tick(world_t *world)
@@ -122,7 +199,7 @@ void tick(world_t *world)
 
 lib_start_result lib_start()
 {
-    float window_width = 1600, window_height = 900;
+    float window_width = 640, window_height = 320;
     SDL_Window *window = SDL_CreateWindow("Hello, SDL!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_OPENGL);
     if (!window)
     {
@@ -198,7 +275,8 @@ lib_start_result lib_start()
             running = 0;
 
         GL_CALL(glClearColor(0.5, 0.5, 0.5, 1.0));
-        GL_CALL(glClear(GL_COLOR_BUFFER_BIT));
+        GL_CALL(glClearDepthf(1));
+        GL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
         tick(world);
 

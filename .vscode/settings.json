@@ -17,6 +17,8 @@
         "entities.h": "c",
         "stb_ds.h": "c",
         "engine.h": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "stb_truetype.h": "c",
+        "linmath.h": "c"
     }
 }
