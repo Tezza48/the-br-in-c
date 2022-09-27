@@ -58,7 +58,6 @@ void startup(world_t *world)
     asset_cache_t *asset_cache = world_create_resource(world, asset_cache_t);
 
     {
-
         // ? Should sprite_batch_t own this entirely?
         GLenum shader_types[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
         const char *batched_sprite_shader_src_path = "./shader/shader.glsl";
@@ -123,76 +122,23 @@ void startup(world_t *world)
         }
     }
     {
-        uint8_t *bytes;
-        FILE *file = fopen("./font/CONSTAN.TTF", "r");
+        const char *constan_font_path = "./font/CONSTAN.TTF";
+        shput(asset_cache->sh_baked_fonts_32px, constan_font_path, font_load(constan_font_path, 32.0));
 
-        fseek(file, 0, SEEK_END);
-        int64_t num_bytes = ftell(file);
+        baked_font_t *constan_32 = &shget(asset_cache->sh_baked_fonts_32px, constan_font_path);
 
-        rewind(file);
-
-        bytes = calloc(num_bytes, sizeof(uint8_t));
-
-        fread(bytes, sizeof(uint8_t), num_bytes, file);
-
-        fclose(file);
-
-        uint32_t tex_width = 256;
-        uint8_t bitmap[tex_width * tex_width];
-        stbtt_bakedchar cdata[96];
-
-        stbtt_BakeFontBitmap(bytes, 0, 32.0, bitmap, tex_width, tex_width, 32, 96, cdata);
-
-        uint8_t y_flip[tex_width * tex_width];
-        for (size_t y = 0; y < tex_width; y++)
-        {
-            for (size_t x = 0; x < tex_width; x++)
-            {
-                y_flip[(tex_width - y) * tex_width + x] = bitmap[y * tex_width + x];
-            }
-        }
-
-        uint8_t *rgba_bitmap = calloc(tex_width * tex_width * 4, sizeof(uint8_t));
-
-        for (size_t i = 0; i < tex_width * tex_width; i++)
-        {
-            size_t start_index = i * 4;
-            rgba_bitmap[start_index + 0] = y_flip[i];
-            rgba_bitmap[start_index + 1] = y_flip[i];
-            rgba_bitmap[start_index + 2] = y_flip[i];
-            rgba_bitmap[start_index + 3] = y_flip[i];
-        }
-
-        entity_t *font_data_entity = entity_new(world);
-        texture_t *tex = entity_create_component(font_data_entity, texture_t);
-        tex->name = "CONSTAN.TTF Bitmap 32";
-        GL_CALL(glGenTextures(1, &tex->texture));
-        GL_CALL(glBindTexture(GL_TEXTURE_2D, tex->texture));
-        GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, tex_width, tex_width, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba_bitmap));
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR));
-        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-        GL_CALL(glGenerateMipmap(GL_TEXTURE_2D));
-        glObjectLabel(GL_TEXTURE, tex->texture, strlen(tex->name), tex->name);
-        GL_CALL(glBindTexture(GL_TEXTURE_2D, 0));
-
-        free(rgba_bitmap);
-
-        mat4x4_identity(tex->uv_matrix);
-
-        sprite_t *font_sprite = entity_create_component(font_data_entity, sprite_t);
+        sprite_t *debug_entire_font_texture_sprite = entity_create_component(entity_new(world), sprite_t);
         vec3 pos = {0.0f, 0.0f, 0.0f};
-        memcpy_s(font_sprite->pos, sizeof(vec3), pos, sizeof(vec3));
-
         vec2 scale = {4.0f, 4.0f};
-        memcpy_s(font_sprite->scale, sizeof(vec2), scale, sizeof(vec2));
-
         vec2 anchor = {0.5f, 0.5f};
-        memcpy_s(font_sprite->anchor, sizeof(vec2), anchor, sizeof(vec2));
-
         vec4 color = {1.0, 1.0, 1.0, 1.0};
-        memcpy_s(font_sprite->color, sizeof(vec4), color, sizeof(vec4));
 
-        font_sprite->texture = tex;
+        memcpy_s(debug_entire_font_texture_sprite->pos, sizeof(vec3), pos, sizeof(vec3));
+        memcpy_s(debug_entire_font_texture_sprite->scale, sizeof(vec2), scale, sizeof(vec2));
+        memcpy_s(debug_entire_font_texture_sprite->anchor, sizeof(vec2), anchor, sizeof(vec2));
+        memcpy_s(debug_entire_font_texture_sprite->color, sizeof(vec4), color, sizeof(vec4));
+
+        debug_entire_font_texture_sprite->texture = &constan_32->texture;
     }
 }
 

@@ -20,7 +20,5 @@ void asset_cache_free(asset_cache_t *p_cache)
 
 #undef X
 
-    shfree(p_cache->sh_textures);
-
     free(p_cache);
 }
