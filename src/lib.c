@@ -20,6 +20,8 @@
 
 #include "vendor/stb_truetype.h"
 
+#include "asset_cache.h"
+
 void rect_to_uv_matrix(vec4 rect, mat4x4 matrix)
 {
     mat4x4_identity(matrix);
@@ -48,23 +50,24 @@ void gl_program_free(gl_program_t *program)
 void startup(world_t *world)
 {
     // Tell the ecs to use a particular proc to free certain types.
-    world_register_free(world, sprite_batch_t, (custom_free_fn)&sprite_batch_free);
-    world_register_free(world, texture_t, (custom_free_fn)&texture_free);
-    world_register_free(world, gl_program_t, (custom_free_fn)&gl_program_free);
+    world_register_free(world, sprite_batch_t, (custom_free_fn)sprite_batch_free);
+    world_register_free(world, texture_t, (custom_free_fn)texture_free);
+    world_register_free(world, gl_program_t, (custom_free_fn)gl_program_free);
+    world_register_free(world, asset_cache_t, (custom_free_fn)asset_cache_free);
 
-    // Set up an entity for a fre random things we need in the scene.
-    entity_t *random_stuff_entity = entity_new(world);
+    asset_cache_t *asset_cache = world_create_resource(world, asset_cache_t);
+
     {
-        // TODO WT: Not a great idea storing an individual program on some random entity, create a program cache resource.
-        gl_program_t *program = entity_create_component(random_stuff_entity, gl_program_t);
 
         // ? Should sprite_batch_t own this entirely?
         GLenum shader_types[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
-        program->program = create_program("./shader/shader.glsl", shader_types, 2);
+        const char *batched_sprite_shader_src_path = "./shader/shader.glsl";
+        shput(asset_cache->sh_programs, batched_sprite_shader_src_path, create_program(batched_sprite_shader_src_path, shader_types, 2));
+        GLuint *program = &shget(asset_cache->sh_programs, batched_sprite_shader_src_path);
 
         sprite_batch_t *p_sprite_batch = world_create_resource(world, sprite_batch_t);
         // TODO WT: Refactor sprite batch instantiation to "set up" an existing ptr.
-        sprite_batch_t sprite_batch = sprite_batch_new(program->program, 1000);
+        sprite_batch_t sprite_batch = sprite_batch_new(*program, 1000);
         memcpy_s(p_sprite_batch, sizeof(sprite_batch_t), &sprite_batch, sizeof(sprite_batch_t));
     }
 
@@ -91,8 +94,9 @@ void startup(world_t *world)
         const vec2 min_max_scale = {0.1, 0.5};
 
         // TODO WT: Not a great idea storing an individual texture on some random entity, create a texture cache resource.
-        texture_t *tex = entity_create_component(random_stuff_entity, texture_t);
-        *tex = texture_new_load_entire("./images/fruit_banana.png");
+        const char *banana_texture_path = "./images/fruit_banana.png";
+        shput(asset_cache->sh_textures, banana_texture_path, texture_new_load_entire(banana_texture_path));
+        texture_t *tex = &shget(asset_cache->sh_textures, banana_texture_path);
 
         for (size_t i = 0; i < num_sprites; i++)
         {

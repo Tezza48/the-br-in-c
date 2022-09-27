@@ -2,7 +2,7 @@
 #include "vendor/stb_image.h"
 #include "engine/engine.h"
 
-texture_t texture_new_load_entire(char *path)
+texture_t texture_new_load_entire(const char *path)
 {
     texture_t result = {0};
     result.name = path;
@@ -41,8 +41,15 @@ texture_t texture_new_load_entire(char *path)
     return result;
 }
 
-void texture_free(texture_t *self)
+/// @brief Cleanup the API texture but don't free.
+/// @param self Texture to cleanup.
+void texture_cleanup(texture_t *self)
 {
     glDeleteTextures(1, &self->texture);
+}
+
+void texture_free(texture_t *self)
+{
+    texture_cleanup(self);
     *self = (texture_t){0};
 }
