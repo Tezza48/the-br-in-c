@@ -78,19 +78,21 @@ void startup(world_t *world)
         memcpy_s(camera->pos, sizeof(vec2), pos, sizeof(vec2));
 
         app_context_t *app_context = world_get_resource(world, app_context_t);
+
         camera->aspect = (float)app_context->window_width / (float)app_context->window_height;
+        camera->size = app_context->window_width;
 
-        camera->size = 10;
-
-        float w = camera->size / 2, h = (camera->size / 2) / camera->aspect;
-        mat4x4_ortho(camera->view_proj, -w, w, -h, h, 0, 100);
+        float hw = app_context->window_width / 2, hh = app_context->window_height / 2;
+        mat4x4_ortho(camera->view_proj, -hw, hw, -hh, hh, 0, 100);
     }
 
     {
+        app_context_t *app_context = world_get_resource(world, app_context_t);
+
         const size_t num_sprites = 1000;
 
-        const vec2 size = {8.0, 8.0};
-        const vec2 min_max_scale = {0.1, 0.5};
+        const vec2 size = {app_context->window_width, app_context->window_height};
+        const vec2 min_max_scale = {10, 100};
 
         // TODO WT: Not a great idea storing an individual texture on some random entity, create a texture cache resource.
         const char *banana_texture_path = "./images/fruit_banana.png";
@@ -142,14 +144,114 @@ void startup(world_t *world)
     }
 }
 
+#include <SDL2/SDL_opengl.h>
+
 void tick(world_t *world)
 {
     draw_sprites(world);
+
+    asset_cache_t *assets = world_get_resource(world, asset_cache_t);
+    baked_font_t *font = &shget(assets->sh_baked_fonts_32px, "./font/CONSTAN.TTF");
+    GLuint ftex = font->texture.texture;
+    const char *text = "Hello, World!\0";
+    stbtt_bakedchar *cdata = font->char_data;
+
+    float x = 0, y = 0;
+
+    // void (*glBegin)() = SDL_GL_GetProcAddress("glBegin");
+    // void (*glTexCoord2f)() = SDL_GL_GetProcAddress("glTexCoord2f");
+    // void (*glVertex2f)() = SDL_GL_GetProcAddress("glVertex2f");
+    // void (*glEnd)() = SDL_GL_GetProcAddress("glEnd");
+
+    GL_CALL(glEnable(GL_BLEND));
+    GL_CALL(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    // GL_CALL(glEnable(GL_TEXTURE_2D));
+    GL_CALL(glBindTexture(GL_TEXTURE_2D, ftex));
+
+    sprite_batch_t *sprite_batch = world_get_resource(world, sprite_batch_t);
+
+    GL_CALL(glUseProgram(sprite_batch->program));
+
+    camera_t *camera;
+    entity_t *arr_entities = world_get_entities(world);
+    for (size_t i = 0; i < arrlen(arr_entities); i++)
+    {
+        camera = entity_get_component(&arr_entities[i], camera_t);
+        if (camera)
+            break;
+    }
+
+    assert(camera);
+
+    glUniformMatrix4fv(glGetUniformLocation(sprite_batch->program, "mat_view_proj"), 1, GL_FALSE, camera->view_proj[0]);
+
+    glDisable(GL_DEPTH_TEST);
+
+    sprite_batch->current_texture_id = ftex;
+
+    int did_flush = 0;
+
+    // GL_CALL(glBegin(GL_TRIANGLES));
+    while (*text)
+    {
+        if (*text >= 32 && *text < 128)
+        {
+            stbtt_aligned_quad q;
+            stbtt_GetBakedQuad(cdata, 512, 512, *text - 32, &x, &y, &q, 1); // 1=opengl & d3d10+,0=d3d9
+
+            sprite_quad_t vertices = {
+                {.uv = {q.s0, q.t0}, .pos = {q.x0, -q.y0, 0.0}, .color = {1.0, 1.0, 1.0, 1.0}},
+                {.uv = {q.s1, q.t0}, .pos = {q.x1, -q.y0, 0.0}, .color = {1.0, 1.0, 1.0, 1.0}},
+                {.uv = {q.s1, q.t1}, .pos = {q.x1, -q.y1, 0.0}, .color = {1.0, 1.0, 1.0, 1.0}},
+                {.uv = {q.s0, q.t0}, .pos = {q.x0, -q.y0, 0.0}, .color = {1.0, 1.0, 1.0, 1.0}},
+                {.uv = {q.s1, q.t1}, .pos = {q.x1, -q.y1, 0.0}, .color = {1.0, 1.0, 1.0, 1.0}},
+                {.uv = {q.s0, q.t1}, .pos = {q.x0, -q.y1, 0.0}, .color = {1.0, 1.0, 1.0, 1.0}},
+            };
+
+            memcpy_s(&sprite_batch->quads_vertices[sprite_batch->num_quads++], sizeof(sprite_quad_t), vertices, sizeof(sprite_quad_t));
+
+            // sprite_batch_flush(sprite_batch);
+            if (sprite_batch->num_quads >= sprite_batch->max_batch_size)
+            {
+                sprite_batch_flush(sprite_batch);
+
+                did_flush = 1;
+            }
+            else
+            {
+                did_flush = 0;
+            }
+
+            // GL_CALL(glTexCoord2f(q.s0, q.t0));
+            // GL_CALL(glVertex2f(q.x0, q.y0));
+
+            // GL_CALL(glTexCoord2f(q.s1, q.t0));
+            // GL_CALL(glVertex2f(q.x1, q.y0));
+
+            // GL_CALL(glTexCoord2f(q.s1, q.t1));
+            // GL_CALL(glVertex2f(q.x1, q.y1));
+
+            // GL_CALL(glTexCoord2f(q.s0, q.t0));
+            // GL_CALL(glVertex2f(q.x0, q.y0));
+
+            // GL_CALL(glTexCoord2f(q.s1, q.t1));
+            // GL_CALL(glVertex2f(q.x1, q.y1));
+
+            // GL_CALL(glTexCoord2f(q.s0, q.t1));
+            // GL_CALL(glVertex2f(q.x0, q.y1));
+        }
+        ++text;
+    }
+
+    if (!did_flush)
+    {
+        sprite_batch_flush(sprite_batch);
+    }
 }
 
 lib_start_result lib_start()
 {
-    float window_width = 640, window_height = 320;
+    float window_width = 1280, window_height = 720;
     SDL_Window *window = SDL_CreateWindow("Hello, SDL!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_OPENGL);
     if (!window)
     {
@@ -164,7 +266,7 @@ lib_start_result lib_start()
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    // SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 
     SDL_GLContext context = SDL_GL_CreateContext(window);

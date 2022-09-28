@@ -3,6 +3,7 @@
 #include "texture.h"
 #include "vendor/stb_truetype.h"
 #include "vendor/stb_ds.h"
+#include "vendor/linmath.h"
 
 typedef struct baked_font_t
 {
@@ -19,6 +20,8 @@ typedef struct text_t
 {
     char *text;
     baked_font_t *font;
+    vec3 pos;
+    vec2 scale;
 } text_t;
 
 void draw_texts(world_t *world);

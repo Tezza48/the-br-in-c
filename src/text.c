@@ -19,30 +19,30 @@ baked_font_t font_load(const char *path, float size)
 
     fclose(file);
 
-    uint32_t tex_width = 256;
+    uint32_t tex_width = 512;
     uint8_t bitmap[tex_width * tex_width];
     stbtt_bakedchar *cdata = calloc(96, sizeof(stbtt_bakedchar));
 
     stbtt_BakeFontBitmap(bytes, 0, size, bitmap, tex_width, tex_width, 32, 96, cdata);
 
-    uint8_t y_flip[tex_width * tex_width];
-    for (size_t y = 0; y < tex_width; y++)
-    {
-        for (size_t x = 0; x < tex_width; x++)
-        {
-            y_flip[(tex_width - y) * tex_width + x] = bitmap[y * tex_width + x];
-        }
-    }
+    // uint8_t y_flip[tex_width * tex_width];
+    // for (size_t y = 0; y < tex_width; y++)
+    // {
+    //     for (size_t x = 0; x < tex_width; x++)
+    //     {
+    //         y_flip[(tex_width - y) * tex_width + x] = bitmap[y * tex_width + x];
+    //     }
+    // }
 
     uint8_t *rgba_bitmap = calloc(tex_width * tex_width * 4, sizeof(uint8_t));
 
     for (size_t i = 0; i < tex_width * tex_width; i++)
     {
         size_t start_index = i * 4;
-        rgba_bitmap[start_index + 0] = y_flip[i];
-        rgba_bitmap[start_index + 1] = y_flip[i];
-        rgba_bitmap[start_index + 2] = y_flip[i];
-        rgba_bitmap[start_index + 3] = y_flip[i];
+        rgba_bitmap[start_index + 0] = bitmap[i]; // y_flip[i];
+        rgba_bitmap[start_index + 1] = bitmap[i]; // y_flip[i];
+        rgba_bitmap[start_index + 2] = bitmap[i]; // y_flip[i];
+        rgba_bitmap[start_index + 3] = bitmap[i]; // y_flip[i];
     }
 
     baked_font_t result = {0};

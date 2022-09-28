@@ -41,3 +41,5 @@ void sprite_batch_free(sprite_batch_t *self);
 // void sprite_batch_flush(sprite_batch_t *self);
 // size_t sprite_batch_draw(sprite_batch_t *self, sprite_t *sprite);
 void draw_sprites(world_t *world);
+
+void sprite_batch_flush(sprite_batch_t *self);

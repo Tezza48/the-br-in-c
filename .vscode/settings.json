@@ -19,6 +19,7 @@
         "engine.h": "c",
         "unistd.h": "c",
         "stb_truetype.h": "c",
-        "linmath.h": "c"
+        "linmath.h": "c",
+        "sdl_opengl.h": "c"
     }
 }
