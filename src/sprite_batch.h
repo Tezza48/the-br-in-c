@@ -1,7 +1,8 @@
 #pragma once
 #include <glad/glad.h>
 #include "vendor/linmath.h"
-#include "entities.h"
+
+typedef struct app_t app_t;
 
 typedef struct vertex_t
 {
@@ -28,7 +29,7 @@ sprite_batch_t sprite_batch_new(GLuint program, size_t max_batch_size);
 
 void sprite_batch_free(sprite_batch_t *self);
 
-void sprite_batch_render_system(world_t *world);
+void sprite_batch_render_system(app_t *app);
 
 uint8_t sprite_batch_submit_quad(sprite_batch_t *batch, sprite_quad_t quad, GLuint texture);
 

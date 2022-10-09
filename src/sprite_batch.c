@@ -6,6 +6,8 @@
 #include "font.h"
 #include <stdlib.h>
 #include "vendor/stb_ds.h"
+#include <assert.h>
+#include "entities.h"
 
 sprite_batch_t sprite_batch_new(GLuint program, size_t max_batch_size)
 {
@@ -130,18 +132,21 @@ uint8_t submit_text(sprite_batch_t *batch, text_t *text)
     return did_flush;
 }
 
-void sprite_batch_render_system(world_t *world)
+void sprite_batch_render_system(app_t *app)
 {
-    sprite_batch_t *sprite_batch = world_get_resource(world, sprite_batch_t);
+    sprite_batch_t *sprite_batch = app->sprite_batch;
+
     GL_CALL(glUseProgram(sprite_batch->program));
 
     camera_t *camera;
-    entity_t *arr_entities = world_get_entities(world);
+    entity_t **arr_entities = app->entities;
     for (size_t i = 0; i < arrlen(arr_entities); i++)
     {
-        camera = entity_get_component(&arr_entities[i], camera_t);
-        if (camera)
+        if (arr_entities[i]->has_camera)
+        {
+            camera = &arr_entities[i]->camera;
             break;
+        }
     }
 
     assert(camera);
@@ -152,20 +157,27 @@ void sprite_batch_render_system(world_t *world)
 
     // TODO WT: either sort by depth OR use parent hierarchy to draw back to front.
     size_t did_batcher_flush = 0;
-    for (size_t i = 0; i < arrlen(world->arr_entities); i++)
+    for (size_t i = 0; i < arrlen(arr_entities); i++)
     {
-        entity_t *entity = &arr_entities[i];
+        entity_t *entity = arr_entities[i];
 
+        switch (entity->render_type)
         {
-            sprite_t *sprite = entity_get_component(entity, sprite_t);
-            if (sprite)
-                did_batcher_flush = submit_sprite(sprite_batch, sprite);
+        case RENDER_TYPE_SPRITE:
+        {
+            did_batcher_flush = submit_sprite(sprite_batch, &entity->sprite);
+            break;
         }
-
+        case RENDER_TYPE_TEXT:
         {
-            text_t *text = entity_get_component(entity, text_t);
-            if (text)
-                did_batcher_flush = submit_text(sprite_batch, text);
+            did_batcher_flush = submit_text(sprite_batch, &entity->text);
+            break;
+        }
+        case RENDER_TYPE_NONE:
+        default:
+        {
+            break;
+        }
         }
     }
 

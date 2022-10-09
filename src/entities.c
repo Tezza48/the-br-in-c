@@ -1,94 +1,145 @@
 #include "entities.h"
+#include <stdlib.h>
 #include "vendor/stb_ds.h"
+#include <assert.h>
+#include "engine/engine.h"
+#include "search.h"
 
-void free_all_components(world_t *world, entity_t *entity);
+app_t *app_new()
+{
+    app_t *app = calloc(1, sizeof(app_t));
 
-world_t *world_new()
-{
-    world_t *val = (world_t *)calloc(1, sizeof(world_t));
-    assert(val);
-    return val;
-}
-void world_free(world_t *world)
-{
-    for (size_t i = 0; i < arrlen(world->arr_entities); i++)
+    app->window_width = 1280;
+    app->window_height = 720;
+    strcpy_s(app->window_title, sizeof(app->window_title), "Hello, SDL2!");
     {
-        // DO NOT USE -> entity_delete(world, &world->arr_entities[i]) here.
-        // Directly free all components and free the entity's hashmap to avoid individually deleting each entity.
-        free_all_components(world, &world->arr_entities[i]);
-        shfree(world->arr_entities[i].sh_components);
+        SDL_Window *window = SDL_CreateWindow(
+            app->window_title,
+            SDL_WINDOWPOS_CENTERED,
+            SDL_WINDOWPOS_CENTERED,
+            app->window_width,
+            app->window_height,
+            SDL_WINDOW_OPENGL);
+
+        assert(window);
+        app->window = window;
     }
-    // free entire entity array now that they're all cleaned up.
-    arrfree(world->arr_entities);
 
-    free_all_components(world, &world->resources);
+    SDL_ShowWindow(app->window);
+    SDL_GL_SetSwapInterval(0);
 
-    free(world);
-}
-entity_t *world_get_entities(world_t *world)
-{
-    return world->arr_entities;
-}
+    app->keyboard_state = SDL_GetKeyboardState(&app->keyboard_state_length);
+    app->last_keyboard_state = calloc(app->keyboard_state_length, sizeof(uint8_t));
+    assert(app->keyboard_state && app->last_keyboard_state);
 
-void *world_create_resource_impl(world_t *world, const char *typename, size_t typesize)
-{
-    return entity_create_component_impl(&world->resources, typename, typesize);
-}
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 
-void *world_get_resource_impl(world_t *world, const char *typename, size_t typesize)
-{
-    return entity_get_component_impl(&world->resources, typename, typesize);
-}
-void world_register_free_impl(world_t *world, const char *typename, custom_free_fn free_fn)
-{
-    shput(world->sh_free_fns, typename, free_fn);
-}
+    app->context = SDL_GL_CreateContext(app->window);
+    assert(app->context);
 
-entity_t *entity_new(world_t *world)
-{
-    entity_t val = {
-        0};
-
-    arrput(world->arr_entities, val);
-
-    return &world->arr_entities[arrlen(world->arr_entities) - 1];
-}
-
-void free_all_components(world_t *world, entity_t *entity)
-{
-    for (size_t i = 0; i < shlen(entity->sh_components); i++)
+    if (!gladLoadGLLoader(&SDL_GL_GetProcAddress))
     {
-        custom_free_fn free_fn = shget(world->sh_free_fns, entity->sh_components[i].key);
-        if (free_fn)
-            free_fn(entity->sh_components[i].value);
-        else
-            free(entity->sh_components[i].value);
+        return 0;
     }
+
+    app->entities = 0;
+    app->root = entity_new(app);
+
+    app->asset_cache = calloc(1, sizeof(asset_cache_t));
+
+    // Malloc instead of calloc as we're going to memcpy to this address
+    app->sprite_batch = malloc(sizeof(sprite_batch_t));
+    assert(app->asset_cache && app->sprite_batch);
+    {
+        GLenum shader_types[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
+        const char *batched_sprite_shader_src_path = "./shader/shader.glsl";
+        shput(app->asset_cache->sh_programs, batched_sprite_shader_src_path, create_program(batched_sprite_shader_src_path, shader_types, 2));
+        GLuint program = shget(app->asset_cache->sh_programs, batched_sprite_shader_src_path);
+
+        sprite_batch_t temp_sprite_batch = sprite_batch_new(program, 1000);
+        memcpy_s(app->sprite_batch, sizeof(sprite_batch_t), &temp_sprite_batch, sizeof(sprite_batch_t));
+    }
+
+    app->is_running = 1;
+
+    return app;
 }
 
-void entity_delete(world_t *world, entity_t *entity)
+void app_free(app_t *app)
 {
-    free_all_components(world, entity);
+    sprite_batch_free(app->sprite_batch);
+    asset_cache_free(app->asset_cache);
 
-    shfree(entity->sh_components);
-    int64_t index = (entity - world->arr_entities) / sizeof(entity);
-    arrdelswap(world->arr_entities, index);
+    for (size_t i = 0; i < arrlen(app->entities); i++)
+        entity_free(app, app->entities[i]);
+
+    arrfree(app->entities);
+
+    free(app->last_keyboard_state);
+
+    SDL_GL_DeleteContext(app->context);
+    SDL_DestroyWindow(app->window);
+    SDL_Quit();
+
+    free(app);
 }
 
-void *entity_create_component_impl(entity_t *entity, const char *typename, size_t typesize)
+entity_t *entity_new(app_t *app)
 {
-    void *val = calloc(1, typesize);
-    assert(val);
+    entity_t *entity = calloc(1, sizeof(entity_t));
+    arrput(app->entities, entity);
 
-    shput(entity->sh_components, typename, val);
-
-    return val;
+    return entity;
 }
-void *entity_get_component_impl(entity_t *entity, const char *typename, size_t typesize)
+void entity_free(app_t *app, entity_t *entity)
 {
-    // TODO WT: Grabbing the index anyway to see if it's got that component. should store that and use it instead of calling shget on the next line.
-    if (shgeti(entity->sh_components, typename) != -1)
-        return shget(entity->sh_components, typename);
+    size_t index = -1;
+    for (size_t i = 0; i < arrlen(app->entities); i++)
+    {
+        if (app->entities[i] == entity)
+        {
+            index = i;
+            break;
+        }
+    }
 
-    return 0;
+    assert(index != -1);
+
+    free(entity);
+    arrdelswap(app->entities, index);
+}
+
+int32_t compare_entities(const entity_t *a, const entity_t *b)
+{
+    return a == b;
+}
+
+entity_t *set_parent(entity_t *entity, entity_t *parent)
+{
+    entity_t *old_parent = entity->parent;
+
+    if (old_parent)
+    {
+        uint32_t num_children = arrlenu(old_parent->children);
+        entity_t **found = lfind(
+            entity,
+            old_parent->children,
+            &num_children,
+            sizeof(entity_t *),
+            (int (*)(const void *, const void *))compare_entities);
+
+        if (found)
+        {
+            size_t index = (found - old_parent->children) / sizeof(entity_t);
+            arrdel(old_parent->children, index);
+        }
+    }
+
+    arrput(parent->children, entity);
+    entity->parent = parent;
+
+    return old_parent;
 }

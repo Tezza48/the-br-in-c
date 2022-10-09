@@ -23,94 +23,61 @@
 #include "vendor/stb_truetype.h"
 
 #include "asset_cache.h"
+#include "transform.h"
 
-void rect_to_uv_matrix(vec4 rect, mat4x4 matrix)
+// void rect_to_uv_matrix(vec4 rect, mat4x4 matrix)
+// {
+//     mat4x4_identity(matrix);
+//     matrix[0][0] = rect[2];
+//     matrix[1][1] = rect[3];
+
+//     mat4x4_translate(matrix, rect[0], rect[1], 0);
+// }
+
+void startup(app_t *app)
 {
-    mat4x4_identity(matrix);
-    matrix[0][0] = rect[2];
-    matrix[1][1] = rect[3];
-
-    mat4x4_translate(matrix, rect[0], rect[1], 0);
-}
-
-typedef struct app_context_t
-{
-    uint32_t window_width;
-    uint32_t window_height;
-} app_context_t;
-
-typedef struct gl_program_t
-{
-    GLuint program;
-} gl_program_t;
-void gl_program_free(gl_program_t *program)
-{
-    glDeleteProgram(program->program);
-    free(program);
-}
-
-void startup(world_t *world)
-{
-    // Tell the ecs to use a particular proc to free certain types.
-    world_register_free(world, sprite_batch_t, (custom_free_fn)sprite_batch_free);
-    world_register_free(world, texture_t, (custom_free_fn)texture_free);
-    world_register_free(world, gl_program_t, (custom_free_fn)gl_program_free);
-    world_register_free(world, asset_cache_t, (custom_free_fn)asset_cache_free);
-
-    asset_cache_t *asset_cache = world_create_resource(world, asset_cache_t);
-
+    asset_cache_t *asset_cache = app->asset_cache;
     {
-        // ? Should sprite_batch_t own this entirely?
-        GLenum shader_types[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
-        const char *batched_sprite_shader_src_path = "./shader/shader.glsl";
-        shput(asset_cache->sh_programs, batched_sprite_shader_src_path, create_program(batched_sprite_shader_src_path, shader_types, 2));
-        GLuint *program = &shget(asset_cache->sh_programs, batched_sprite_shader_src_path);
+        entity_t *cam_entity = entity_new(app);
+        cam_entity->has_camera = 1;
+        camera_t *camera = &cam_entity->camera;
 
-        sprite_batch_t *p_sprite_batch = world_create_resource(world, sprite_batch_t);
-        // TODO WT: Refactor sprite batch instantiation to "set up" an existing ptr.
-        sprite_batch_t sprite_batch = sprite_batch_new(*program, 1000);
-        memcpy_s(p_sprite_batch, sizeof(sprite_batch_t), &sprite_batch, sizeof(sprite_batch_t));
-    }
+        set_parent(cam_entity, app->root);
 
-    {
-        entity_t *cam_entity = entity_new(world);
-        camera_t *camera = entity_create_component(cam_entity, camera_t);
-
+        // TODO WT: Consolidate all the individual components with position/scale/etc...
         vec2 pos = {0.0f, 0.0f};
         memcpy_s(camera->pos, sizeof(vec2), pos, sizeof(vec2));
 
-        app_context_t *app_context = world_get_resource(world, app_context_t);
+        camera->aspect = (float)app->window_width / (float)app->window_height;
+        camera->size = app->window_width;
 
-        camera->aspect = (float)app_context->window_width / (float)app_context->window_height;
-        camera->size = app_context->window_width;
-
-        float hw = app_context->window_width / 2, hh = app_context->window_height / 2;
-        mat4x4_ortho(camera->view_proj, -hw, hw, -hh, hh, 0, 100);
+        float hw = app->window_width / 2, hh = app->window_height / 2;
+        mat4x4_ortho(camera->view_proj, -hw, hw, -hh, hh, -1, 100);
     }
 
     {
-        app_context_t *app_context = world_get_resource(world, app_context_t);
-
         const size_t num_sprites = 500;
 
-        const vec2 size = {app_context->window_width, app_context->window_height};
+        const vec2 size = {app->window_width, app->window_height};
         const vec2 min_max_scale = {10, 100};
 
-        // TODO WT: Not a great idea storing an individual texture on some random entity, create a texture cache resource.
         const char *banana_texture_path = "./images/fruit_banana.png";
         shput(asset_cache->sh_textures, banana_texture_path, texture_new_load_entire(banana_texture_path));
         texture_t *tex = &shget(asset_cache->sh_textures, banana_texture_path);
 
         for (size_t i = 0; i < num_sprites; i++)
         {
-            entity_t *e = entity_new(world);
-            sprite_t *p_sprite = entity_create_component(e, sprite_t);
+            entity_t *e = entity_new(app);
+            set_parent(e, app->root);
+
+            e->render_type = RENDER_TYPE_SPRITE;
+            sprite_t *p_sprite = &e->sprite;
             float scale = min_max_scale[0] + ((float)rand() / RAND_MAX) * min_max_scale[1];
             sprite_t sprite = {
                 .pos = {
                     ((float)rand() / RAND_MAX) * size[0] - size[0] / 2,
                     ((float)rand() / RAND_MAX) * size[1] - size[1] / 2,
-                    -1.0,
+                    (float)i * 0.01,
                 },
                 .scale = {scale, scale},
                 .anchor = {0.5, 0.5},
@@ -131,34 +98,23 @@ void startup(world_t *world)
 
         font_t *constan = &shget(asset_cache->sh_fonts, constan_font_path);
 
-        text_t *hello_text = entity_create_component(entity_new(world), text_t);
+        entity_t *e = entity_new(app);
+        e->render_type = RENDER_TYPE_TEXT;
+        text_t *hello_text = &e->text;
+        set_parent(e, app->root);
+
         hello_text->font = constan;
         hello_text->font_size = 30;
         vec2 scale = {1.0, 1.0};
         memcpy_s(hello_text->scale, sizeof(vec2), scale, sizeof(vec2));
 
         hello_text->text = "Hello, World!";
-
-        // sprite_t *debug_entire_font_texture_sprite = entity_create_component(entity_new(world), sprite_t);
-        // vec3 pos = {0.0f, 0.0f, 0.0f};
-        // vec2 scale = {4.0f, 4.0f};
-        // vec2 anchor = {0.5f, 0.5f};
-        // vec4 color = {1.0, 1.0, 1.0, 1.0};
-
-        // memcpy_s(debug_entire_font_texture_sprite->pos, sizeof(vec3), pos, sizeof(vec3));
-        // memcpy_s(debug_entire_font_texture_sprite->scale, sizeof(vec2), scale, sizeof(vec2));
-        // memcpy_s(debug_entire_font_texture_sprite->anchor, sizeof(vec2), anchor, sizeof(vec2));
-        // memcpy_s(debug_entire_font_texture_sprite->color, sizeof(vec4), color, sizeof(vec4));
-
-        // debug_entire_font_texture_sprite->texture = &constan_32->texture;
     }
 
     {
-        app_context_t *app_context = world_get_resource(world, app_context_t);
+        const size_t num_sprites = 5;
 
-        const size_t num_sprites = 500;
-
-        const vec2 size = {app_context->window_width, app_context->window_height};
+        const vec2 size = {app->window_width, app->window_height};
         const vec2 min_max_scale = {10, 100};
 
         char *banana_texture_path = "./images/fruit_banana.png";
@@ -166,8 +122,11 @@ void startup(world_t *world)
 
         for (size_t i = 0; i < num_sprites; i++)
         {
-            entity_t *e = entity_new(world);
-            sprite_t *p_sprite = entity_create_component(e, sprite_t);
+            entity_t *e = entity_new(app);
+            set_parent(e, app->root);
+
+            e->render_type = RENDER_TYPE_SPRITE;
+            sprite_t *p_sprite = &e->sprite;
             float scale = min_max_scale[0] + ((float)rand() / RAND_MAX) * min_max_scale[1];
             sprite_t sprite = {
                 .pos = {
@@ -190,57 +149,29 @@ void startup(world_t *world)
     }
 }
 
-void tick(world_t *world)
+void tick(app_t *app)
 {
-    sprite_batch_render_system(world);
+    sprite_batch_render_system(app);
 }
 
 lib_start_result lib_start()
 {
-    float window_width = 1280, window_height = 720;
-    SDL_Window *window = SDL_CreateWindow("Hello, SDL!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_OPENGL);
-    if (!window)
-    {
-        return 0;
-    }
+    app_t *app = app_new();
 
-    SDL_ShowWindow(window);
+    startup(app);
 
-    SDL_GL_SetSwapInterval(0);
-    int32_t scancode_map_len;
-    const uint8_t *scancode_to_state_map = SDL_GetKeyboardState(&scancode_map_len);
-    uint8_t *last_scancode_to_state_map = alloca(scancode_map_len);
-
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
-
-    SDL_GLContext context = SDL_GL_CreateContext(window);
-    assert(context != 0);
-
-    if (!gladLoadGLLoader(&SDL_GL_GetProcAddress))
-    {
-        return 0;
-    }
-
-    world_t *world = world_new();
-
-    app_context_t *app_context = world_create_resource(world, app_context_t);
-    app_context->window_width = window_width;
-    app_context->window_height = window_height;
-
-    startup(world);
-
-    uint8_t running = 1;
     uint64_t last_time;
     uint64_t this_time = SDL_GetTicks64();
 
     uint64_t elapsed_times[60];
     size_t curr_frame_time = 0;
-    while (running)
+    while (app->is_running)
     {
-        memcpy_s(last_scancode_to_state_map, scancode_map_len, scancode_to_state_map, scancode_map_len);
+        memcpy_s(
+            app->last_keyboard_state,
+            sizeof(uint8_t) * app->keyboard_state_length,
+            app->keyboard_state,
+            sizeof(uint8_t) * app->keyboard_state_length);
 
         last_time = this_time;
         this_time = SDL_GetTicks64();
@@ -255,9 +186,8 @@ lib_start_result lib_start()
 
         float delta_seconds = ((float)total / (float)num_frames_to_average) / 1000.0;
 
-        char title[256];
-        sprintf(title, "Hello, Sprite Batching | %.1f FPS", 1.0 / delta_seconds);
-        SDL_SetWindowTitle(window, title);
+        sprintf(app->window_title, "Hello, Sprite Batching | %.1f FPS", 1.0 / delta_seconds);
+        SDL_SetWindowTitle(app->window, app->window_title);
 
         SDL_Event event;
         while (SDL_PollEvent(&event))
@@ -265,39 +195,26 @@ lib_start_result lib_start()
             switch (event.type)
             {
             case SDL_QUIT:
-                running = 0;
+                app->is_running = 0;
                 break;
             default:
                 break;
             }
         }
 
-        if (scancode_to_state_map[SDL_SCANCODE_ESCAPE])
-            running = 0;
+        if (app->keyboard_state[SDL_SCANCODE_ESCAPE])
+            app->is_running = 0;
 
         GL_CALL(glClearColor(0.5, 0.5, 0.5, 1.0));
         GL_CALL(glClearDepthf(1));
         GL_CALL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
-        tick(world);
+        tick(app);
 
-        SDL_GL_SwapWindow(window);
+        SDL_GL_SwapWindow(app->window);
     }
 
-    // * These sould be freed by the custom free fns registered with world_t.
-    // texture_free(&tex);
-    // glDeleteProgram(program);
-
-    // TODO WT: world_free is horribly inefficent and should be optimized. It happens at shutdown though so not massive.
-    last_time = SDL_GetTicks64();
-    world_free(world);
-    this_time = SDL_GetTicks64();
-
-    printf("world_free took %lldms", this_time - last_time);
-
-    SDL_DestroyWindow(window);
-
-    SDL_Quit();
+    app_free(app);
 
     return 1;
 }

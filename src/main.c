@@ -1,7 +1,16 @@
-#include "lib.h"
+#if UNIT_TEST
 
-// #include "vec_tests.h"
-#include "entities.h"
+#include "lib.h"
+#include <stdio.h>
+
+int main(int argc, char **argv)
+{
+    puts("RUNNING UNIT TESTS\n");
+    return lib_unit_tests();
+}
+#else
+
+#include "lib.h"
 
 int main(int argc, char **argv)
 {
@@ -9,3 +18,4 @@ int main(int argc, char **argv)
 
     return 0;
 }
+#endif

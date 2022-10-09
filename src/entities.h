@@ -1,50 +1,98 @@
 #pragma once
-#include "stdint.h"
-#include "assert.h"
+#include <stdint.h>
 
-// TODO WT: world_free_resource, entity_free_component.
+#include <SDL2/SDL.h>
+#include <glad/glad.h>
 
-typedef void *(*custom_free_fn)(void *);
+#include "asset_cache.h"
+#include "sprite_batch.h"
+#include "sprite.h"
+// #include "transform.h"
+#include "text.h"
+#include "camera.h"
 
-typedef struct free_fn_map_t
+typedef struct entity_t entity_t;
+typedef struct app_t
 {
-    const char *key;
-    custom_free_fn value;
-} free_fn_map_t;
 
-typedef struct component_map_t
+    SDL_Window *window;
+    int window_width, window_height;
+    char window_title[256];
+
+    SDL_GLContext context;
+
+    int32_t keyboard_state_length;
+    const uint8_t *keyboard_state;
+    uint8_t *last_keyboard_state;
+
+    entity_t *root;
+    entity_t **entities;
+    asset_cache_t *asset_cache;
+    sprite_batch_t *sprite_batch;
+
+    uint8_t is_running;
+} app_t;
+
+typedef enum render_type_e
 {
-    const char *key;
-    void *value;
-} component_map_t;
+    RENDER_TYPE_NONE = 0,
+    RENDER_TYPE_SPRITE,
+    RENDER_TYPE_TEXT,
+} render_type_e;
 
 typedef struct entity_t
 {
-    component_map_t *sh_components;
+    entity_t *parent;
+    entity_t **children;
+
+    // transform_t transform;
+
+    struct
+    {
+        render_type_e render_type;
+
+        union
+        {
+            sprite_t sprite;
+            text_t text;
+        };
+    };
+
+    uint8_t has_camera;
+    camera_t camera;
+
 } entity_t;
 
-typedef struct world_t
+app_t *app_new();
+void app_free(app_t *app);
+
+entity_t *entity_new(app_t *app);
+void entity_free(app_t *world, entity_t *app);
+
+entity_t *set_parent(entity_t *entity, entity_t *parent);
+
+#if UNIT_TEST
+#include <assert.h>
+
+static void entities_unit_tests_set_parent()
 {
-    entity_t *arr_entities;
-    entity_t resources;
-    free_fn_map_t *sh_free_fns;
-} world_t;
+    app_t *app = calloc(1, sizeof(app_t));
 
-void *world_create_resource_impl(world_t *, const char *typename, size_t typesize);
-void *world_get_resource_impl(world_t *, const char *, size_t);
-void world_register_free_impl(world_t *world, const char *, custom_free_fn);
+    entity_t *parent = entity_new(app);
 
-void *entity_create_component_impl(entity_t *, const char *typename, size_t typesize);
-void *entity_get_component_impl(entity_t *, const char *, size_t);
+    entity_t *child = entity_new(app);
 
-world_t *world_new();
-void world_free(world_t *);
-entity_t *world_get_entities(world_t *world);
-#define world_create_resource(p_world, type) (type *)world_create_resource_impl(p_world, #type, sizeof(type))
-#define world_get_resource(p_world, type) (type *)world_get_resource_impl(p_world, #type, sizeof(type))
-#define world_register_free(p_world, type, fn) world_register_free_impl(p_world, #type, fn)
+    entity_t *old_expect_0 = set_parent(child, parent);
 
-entity_t *entity_new(world_t *);
-void entity_delete(world_t *, entity_t *);
-#define entity_create_component(p_entity, type) (type *)entity_create_component_impl(p_entity, #type, sizeof(type))
-#define entity_get_component(p_entity, type) (type *)entity_get_component_impl(p_entity, #type, sizeof(type))
+    assert(parent->children[0] == child);
+    assert(child->parent == parent);
+    assert(old_expect_0 == 0);
+}
+
+static int entities_unit_tests(void)
+{
+    entities_unit_tests_set_parent();
+
+    return 1;
+}
+#endif

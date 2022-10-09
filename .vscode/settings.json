@@ -21,6 +21,9 @@
         "stb_truetype.h": "c",
         "linmath.h": "c",
         "sdl_opengl.h": "c",
-        "glad.h": "c"
+        "glad.h": "c",
+        "sprite_batch.h": "c",
+        "text.h": "c",
+        "camera.h": "c"
     }
 }
