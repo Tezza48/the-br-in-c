@@ -24,6 +24,8 @@
         "glad.h": "c",
         "sprite_batch.h": "c",
         "text.h": "c",
-        "camera.h": "c"
+        "camera.h": "c",
+        "stddef.h": "c",
+        "transform.h": "c"
     }
 }

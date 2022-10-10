@@ -56,38 +56,38 @@ void sprite_batch_free(sprite_batch_t *self)
     *self = (sprite_batch_t){0};
 }
 
-uint8_t submit_sprite(sprite_batch_t *self, sprite_t *sprite)
+uint8_t submit_sprite(sprite_batch_t *self, sprite_t *sprite, transform_t *transform)
 {
-    float x_anchor = sprite->anchor[0] * sprite->scale[0];
-    float y_anchor = sprite->anchor[1] * sprite->scale[1];
+    float x_anchor = sprite->anchor[0] * transform->scale[0];
+    float y_anchor = sprite->anchor[1] * transform->scale[1];
     sprite_quad_t vertices = {
         {
-            {sprite->pos[0] - x_anchor, sprite->pos[1] - y_anchor, -sprite->pos[2]},
+            {transform->pos[0] - x_anchor, transform->pos[1] - y_anchor, 0.0 /*-transform->pos[2]*/},
             {0.0, 0.0},
             {sprite->color[0], sprite->color[1], sprite->color[2], sprite->color[3]},
         },
         {
-            {sprite->pos[0] - x_anchor, sprite->pos[1] + sprite->scale[1] - y_anchor, -sprite->pos[2]},
+            {transform->pos[0] - x_anchor, transform->pos[1] + transform->scale[1] - y_anchor, 0.0 /*-transform->pos[2]*/},
             {0.0, 1.0},
             {sprite->color[0], sprite->color[1], sprite->color[2], sprite->color[3]},
         },
         {
-            {sprite->pos[0] + sprite->scale[0] - x_anchor, sprite->pos[1] + sprite->scale[1] - y_anchor, -sprite->pos[2]},
+            {transform->pos[0] + transform->scale[0] - x_anchor, transform->pos[1] + transform->scale[1] - y_anchor, 0.0 /*-transform->pos[2]*/},
             {1.0, 1.0},
             {sprite->color[0], sprite->color[1], sprite->color[2], sprite->color[3]},
         },
         {
-            {sprite->pos[0] - x_anchor, sprite->pos[1] - y_anchor, -sprite->pos[2]},
+            {transform->pos[0] - x_anchor, transform->pos[1] - y_anchor, 0.0 /*-transform->pos[2]*/},
             {0.0, 0.0},
             {sprite->color[0], sprite->color[1], sprite->color[2], sprite->color[3]},
         },
         {
-            {sprite->pos[0] + sprite->scale[0] - x_anchor, sprite->pos[1] + sprite->scale[1] - y_anchor, -sprite->pos[2]},
+            {transform->pos[0] + transform->scale[0] - x_anchor, transform->pos[1] + transform->scale[1] - y_anchor, 0.0 /*-transform->pos[2]*/},
             {1.0, 1.0},
             {sprite->color[0], sprite->color[1], sprite->color[2], sprite->color[3]},
         },
         {
-            {sprite->pos[0] + sprite->scale[0] - x_anchor, sprite->pos[1] - y_anchor, -sprite->pos[2]},
+            {transform->pos[0] + transform->scale[0] - x_anchor, transform->pos[1] - y_anchor, 0.0 /*-transform->pos[2]*/},
             {1.0, 0.0},
             {sprite->color[0], sprite->color[1], sprite->color[2], sprite->color[3]},
         },
@@ -96,12 +96,12 @@ uint8_t submit_sprite(sprite_batch_t *self, sprite_t *sprite)
     return sprite_batch_submit_quad(self, vertices, sprite->texture->texture);
 }
 
-uint8_t submit_text(sprite_batch_t *batch, text_t *text)
+uint8_t submit_text(sprite_batch_t *batch, text_t *text, transform_t *transform)
 {
     const rendered_font_data_t *const data = get_font_render_data(text->font, (float)text->font_size);
     stbtt_bakedchar *cdata = data->char_data;
 
-    float x = text->pos[0], y = text->pos[1];
+    float x = transform->pos[0], y = transform->pos[1];
 
     char *t = text->text;
 
@@ -115,12 +115,12 @@ uint8_t submit_text(sprite_batch_t *batch, text_t *text)
             stbtt_GetBakedQuad(cdata, data->tex_size, data->tex_size, *t - 32, &x, &y, &q, 1); // 1=opengl & d3d10+,0=d3d9
 
             sprite_quad_t vertices = {
-                {.uv = {q.s0, q.t0}, .pos = {q.x0, -q.y0, -text->pos[2]}, .color = {1.0, 1.0, 1.0, 1.0}},
-                {.uv = {q.s1, q.t0}, .pos = {q.x1, -q.y0, -text->pos[2]}, .color = {1.0, 1.0, 1.0, 1.0}},
-                {.uv = {q.s1, q.t1}, .pos = {q.x1, -q.y1, -text->pos[2]}, .color = {1.0, 1.0, 1.0, 1.0}},
-                {.uv = {q.s0, q.t0}, .pos = {q.x0, -q.y0, -text->pos[2]}, .color = {1.0, 1.0, 1.0, 1.0}},
-                {.uv = {q.s1, q.t1}, .pos = {q.x1, -q.y1, -text->pos[2]}, .color = {1.0, 1.0, 1.0, 1.0}},
-                {.uv = {q.s0, q.t1}, .pos = {q.x0, -q.y1, -text->pos[2]}, .color = {1.0, 1.0, 1.0, 1.0}},
+                {.uv = {q.s0, q.t0}, .pos = {q.x0, -q.y0, 0.0 /*-transform->pos[2]*/}, .color = {1.0, 1.0, 1.0, 1.0}},
+                {.uv = {q.s1, q.t0}, .pos = {q.x1, -q.y0, 0.0 /*-transform->pos[2]*/}, .color = {1.0, 1.0, 1.0, 1.0}},
+                {.uv = {q.s1, q.t1}, .pos = {q.x1, -q.y1, 0.0 /*-transform->pos[2]*/}, .color = {1.0, 1.0, 1.0, 1.0}},
+                {.uv = {q.s0, q.t0}, .pos = {q.x0, -q.y0, 0.0 /*-transform->pos[2]*/}, .color = {1.0, 1.0, 1.0, 1.0}},
+                {.uv = {q.s1, q.t1}, .pos = {q.x1, -q.y1, 0.0 /*-transform->pos[2]*/}, .color = {1.0, 1.0, 1.0, 1.0}},
+                {.uv = {q.s0, q.t1}, .pos = {q.x0, -q.y1, 0.0 /*-transform->pos[2]*/}, .color = {1.0, 1.0, 1.0, 1.0}},
             };
 
             did_flush = sprite_batch_submit_quad(batch, vertices, data->texture);
@@ -140,7 +140,8 @@ void sprite_batch_render_system(app_t *app)
 
     camera_t *camera;
     entity_t **arr_entities = app->entities;
-    for (size_t i = 0; i < arrlen(arr_entities); i++)
+    // arr_entities is always sorted by the transform hierarchy, interate backwards to draw back to front.
+    for (size_t i = arrlen(arr_entities) - 1; i >= 0; i--)
     {
         if (arr_entities[i]->has_camera)
         {
@@ -165,12 +166,12 @@ void sprite_batch_render_system(app_t *app)
         {
         case RENDER_TYPE_SPRITE:
         {
-            did_batcher_flush = submit_sprite(sprite_batch, &entity->sprite);
+            did_batcher_flush = submit_sprite(sprite_batch, &entity->sprite, &entity->transform);
             break;
         }
         case RENDER_TYPE_TEXT:
         {
-            did_batcher_flush = submit_text(sprite_batch, &entity->text);
+            did_batcher_flush = submit_text(sprite_batch, &entity->text, &entity->transform);
             break;
         }
         case RENDER_TYPE_NONE:

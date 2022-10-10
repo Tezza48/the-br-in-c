@@ -119,6 +119,7 @@ int32_t compare_entities(const entity_t *a, const entity_t *b)
 
 entity_t *set_parent(entity_t *entity, entity_t *parent)
 {
+    // TODO WT: Setting the parent should move the entity to the correct sorted position in app->entities.
     entity_t *old_parent = entity->parent;
 
     if (old_parent)

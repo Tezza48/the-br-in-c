@@ -71,25 +71,26 @@ void startup(app_t *app)
             set_parent(e, app->root);
 
             e->render_type = RENDER_TYPE_SPRITE;
-            sprite_t *p_sprite = &e->sprite;
             float scale = min_max_scale[0] + ((float)rand() / RAND_MAX) * min_max_scale[1];
-            sprite_t sprite = {
-                .pos = {
-                    ((float)rand() / RAND_MAX) * size[0] - size[0] / 2,
-                    ((float)rand() / RAND_MAX) * size[1] - size[1] / 2,
-                    (float)i * 0.01,
-                },
-                .scale = {scale, scale},
-                .anchor = {0.5, 0.5},
-                .color = {
-                    ((float)rand() / RAND_MAX),
-                    ((float)rand() / RAND_MAX),
-                    ((float)rand() / RAND_MAX),
-                    1.0,
-                },
-                .texture = tex,
+            vec3 pos = {
+                ((float)rand() / RAND_MAX) * size[0] - size[0] / 2,
+                ((float)rand() / RAND_MAX) * size[1] - size[1] / 2,
+                1.0,
             };
-            memcpy_s(p_sprite, sizeof(sprite_t), &sprite, sizeof(sprite_t));
+            memcpy_s(e->transform.pos, sizeof(vec3), pos, sizeof(vec3));
+            vec2 scaleVec = {scale, scale};
+            memcpy_s(e->transform.scale, sizeof(vec2), scaleVec, sizeof(vec2));
+
+            vec2 anchor = {0.5, 0.5};
+            memcpy_s(e->sprite.anchor, sizeof(vec2), anchor, sizeof(vec2));
+            vec4 color = {
+                0xff / 255.0, // ((float)rand() / RAND_MAX),
+                0,            // ((float)rand() / RAND_MAX),
+                0xff / 255.0, // ((float)rand() / RAND_MAX),
+                1.0,
+            };
+            memcpy_s(e->sprite.color, sizeof(vec4), color, sizeof(vec4));
+            e->sprite.texture = tex;
         }
     }
     {
@@ -106,13 +107,13 @@ void startup(app_t *app)
         hello_text->font = constan;
         hello_text->font_size = 30;
         vec2 scale = {1.0, 1.0};
-        memcpy_s(hello_text->scale, sizeof(vec2), scale, sizeof(vec2));
+        memcpy_s(e->transform.scale, sizeof(vec2), scale, sizeof(vec2));
 
         hello_text->text = "Hello, World!";
     }
 
     {
-        const size_t num_sprites = 5;
+        const size_t num_sprites = 500;
 
         const vec2 size = {app->window_width, app->window_height};
         const vec2 min_max_scale = {10, 100};
@@ -124,33 +125,35 @@ void startup(app_t *app)
         {
             entity_t *e = entity_new(app);
             set_parent(e, app->root);
-
             e->render_type = RENDER_TYPE_SPRITE;
-            sprite_t *p_sprite = &e->sprite;
+
             float scale = min_max_scale[0] + ((float)rand() / RAND_MAX) * min_max_scale[1];
-            sprite_t sprite = {
-                .pos = {
-                    ((float)rand() / RAND_MAX) * size[0] - size[0] / 2,
-                    ((float)rand() / RAND_MAX) * size[1] - size[1] / 2,
-                    1.0,
-                },
-                .scale = {scale, scale},
-                .anchor = {0.5, 0.5},
-                .color = {
-                    ((float)rand() / RAND_MAX),
-                    ((float)rand() / RAND_MAX),
-                    ((float)rand() / RAND_MAX),
-                    1.0,
-                },
-                .texture = tex,
+            vec3 pos = {
+                ((float)rand() / RAND_MAX) * size[0] - size[0] / 2,
+                ((float)rand() / RAND_MAX) * size[1] - size[1] / 2,
+                1.0,
             };
-            memcpy_s(p_sprite, sizeof(sprite_t), &sprite, sizeof(sprite_t));
+            memcpy_s(e->transform.pos, sizeof(vec3), pos, sizeof(vec3));
+            vec2 scaleVec = {scale, scale};
+            memcpy_s(e->transform.scale, sizeof(vec2), scaleVec, sizeof(vec2));
+
+            vec2 anchor = {0.5, 0.5};
+            memcpy_s(e->sprite.anchor, sizeof(vec2), anchor, sizeof(vec2));
+            vec4 color = {
+                1.0, //((float)rand() / RAND_MAX),
+                1.0, //((float)rand() / RAND_MAX),
+                1.0, //((float)rand() / RAND_MAX),
+                0.8,
+            };
+            memcpy_s(e->sprite.color, sizeof(vec4), color, sizeof(vec4));
+            e->sprite.texture = tex;
         }
     }
 }
 
 void tick(app_t *app)
 {
+
     sprite_batch_render_system(app);
 }
 

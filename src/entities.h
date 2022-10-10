@@ -7,7 +7,7 @@
 #include "asset_cache.h"
 #include "sprite_batch.h"
 #include "sprite.h"
-// #include "transform.h"
+#include "transform.h"
 #include "text.h"
 #include "camera.h"
 
@@ -45,7 +45,7 @@ typedef struct entity_t
     entity_t *parent;
     entity_t **children;
 
-    // transform_t transform;
+    transform_t transform;
 
     struct
     {
